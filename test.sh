@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+go test github.com/MathieuTurcotte/go-browserchannel/bc/...

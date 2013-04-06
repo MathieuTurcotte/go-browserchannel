@@ -1,0 +1,84 @@
+<html>
+    <head>
+        <title>Go Browser Channel</title>
+        <script src="closure/goog/base.js"></script>
+        <script>
+        goog.require('goog.net.BrowserChannel');
+        goog.require('goog.net.BrowserChannel.Handler');
+        goog.require('goog.net.ChannelDebug');
+        goog.require('goog.debug.Console');
+        </script>
+    </head>
+<body>
+    <h1>Go Browser Channel Example</h1>
+
+    <script>
+    goog.debug.Console.autoInstall();
+    var debugConsole = new goog.debug.Console();
+    debugConsole.setCapturing(true);
+
+    Handler = function() {
+        goog.base(this);
+    };
+    goog.inherits(Handler, goog.net.BrowserChannel.Handler);
+
+    Handler.prototype.channelHandleMultipleArrays = null;
+
+    Handler.prototype.okToMakeRequest = function(browserChannel) {
+      return goog.net.BrowserChannel.Error.OK;
+    };
+
+    Handler.prototype.channelOpened = function(browserChannel) {
+        console.log('channelOpened');
+    };
+
+    Handler.prototype.channelhandlearray = function(browserChannel, array) {
+        console.log('channelHandleArray: ' + array);
+    };
+
+    Handler.prototype.channelError = function(browserChannel, error) {
+        console.log('channelError: ' + error);
+    };
+
+    Handler.prototype.channelClosed = function(
+            browserChannel, opt_pendingMaps, opt_undeliveredMaps) {
+        console.log('channelClosed');
+    };
+
+    Handler.prototype.getAdditionalParams = function(browserChannel) {
+        console.log('getAdditionalParams');
+        return {};
+    };
+
+    Handler.prototype.getNetworkTestImageUri = function(browserChannel) {
+        console.log('getNetworkTestImageUri');
+        return null;
+    };
+
+    Handler.prototype.isActive = function(browserChannel) {
+        console.log('isActive');
+        return true;
+    };
+
+    Handler.prototype.badMapError = function(browserChannel, map) {
+        console.log('badMapError');
+        return;
+    };
+
+    var clientVersion = "cv1"
+    var handler = new Handler();
+    var channel = new goog.net.BrowserChannel(clientVersion);
+    channel.setChannelDebug(new goog.net.ChannelDebug());
+    channel.setSupportsCrossDomainXhrs(true);
+    channel.setAllowHostPrefix(true);
+    channel.setHandler(handler);
+    channel.connect('channel/test', 'channel/bind');
+
+    // Send maps to the server every 10 secondes.
+    // var id = 0;
+    // setInterval(function() {
+    //     channel.sendMap({timestamp: goog.now(), id: id++});
+    // }, 10 * 1000);
+    </script>
+</body>
+</html>

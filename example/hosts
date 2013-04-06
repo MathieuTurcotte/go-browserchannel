@@ -1,0 +1,9 @@
+# Note that IE refuses to set "window.domain" to a top-level domain. So
+# using bc1.localhost to shard the connections would be insufficient since
+# setting "window.domain" to localhost is equivalent to setting it to a
+# top-level domain.
+
+127.0.0.1   hpenvy.local
+127.0.0.1   bc0.hpenvy.local
+127.0.0.1   bc1.hpenvy.local
+127.0.0.1   bc2.hpenvy.local
