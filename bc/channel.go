@@ -86,7 +86,7 @@ func newChannel(clientVersion string, sid SessionId, gcChan chan<- SessionId,
 }
 
 func (c *Channel) log(format string, v ...interface{}) {
-	log.Printf("%s: %s", c.Sid, fmt.Sprintf(format, v...))
+	log.Printf("%s %s", c.Sid, fmt.Sprintf(format, v...))
 }
 
 func (c *Channel) start() {
@@ -221,7 +221,7 @@ type setBackChannelOp struct {
 }
 
 func (op *setBackChannelOp) execute(c *Channel) {
-	c.log("set back channel (chunked:%s)", op.bChannel.isChunked())
+	c.log("set back channel [chunked:%t]", op.bChannel.isChunked())
 
 	if c.state == channelInit {
 		hostPrefix := getHostPrefix(c.corsInfo)

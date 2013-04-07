@@ -20,7 +20,7 @@ import (
 )
 
 // The browser channel protocol version implemented by this library.
-const SupportedProcolVersion = "8"
+const SupportedProcolVersion = 8
 
 var (
 	ErrClosed       = errors.New("handler closed")
@@ -33,14 +33,92 @@ const (
 	DefaultTestPath = "test"
 )
 
+type queryType int
+
 // Possible values for the query TYPE parameter.
-// TODO(mturcotte): The query parameter should be parsed and represented as
-// real types internally.
 const (
-	queryTerminate = "terminate"
-	queryXmlHttp   = "xmlhttp"
-	queryHtml      = "html"
+	queryUnset = iota
+	queryTerminate
+	queryXmlHttp
+	queryHtml
+	queryTest
 )
+
+func parseQueryType(s string) (qtype queryType) {
+	switch s {
+	case "html":
+		qtype = queryHtml
+	case "xmlhttp":
+		qtype = queryXmlHttp
+	case "terminate":
+		qtype = queryTerminate
+	case "test":
+		qtype = queryTest
+	}
+	return
+}
+
+func parseAid(s string) (aid int, err error) {
+	aid = -1
+	if len(s) == 0 {
+		return
+	}
+	aid, err = strconv.Atoi(s)
+	return
+}
+
+func parseProtoVersion(s string) (version int) {
+	version, err := strconv.Atoi(s)
+	if err != nil {
+		version = -1
+	}
+	return
+}
+
+type bindParams struct {
+	cver    string
+	sid     SessionId
+	qtype   queryType
+	domain  string
+	rid     string
+	aid     int
+	chunked bool
+	values  url.Values
+	method  string
+}
+
+func parseBindParams(req *http.Request, values url.Values) (params *bindParams, err error) {
+	cver := req.Form.Get("VER")
+	qtype := parseQueryType(req.Form.Get("TYPE"))
+	domain := req.Form.Get("DOMAIN")
+	rid := req.Form.Get("zx")
+	ci := req.Form.Get("CI") == "1"
+	sid, err := parseSessionId(req.Form.Get("SID"))
+	if err != nil {
+		return
+	}
+	aid, err := parseAid(req.Form.Get("AID"))
+	if err != nil {
+		return
+	}
+	params = &bindParams{cver, sid, qtype, domain, rid, aid, ci, values, req.Method}
+	return
+}
+
+type testParams struct {
+	ver    int
+	init   bool
+	qtype  queryType
+	domain string
+}
+
+func parseTestParams(req *http.Request) *testParams {
+	version := parseProtoVersion(req.Form.Get("VER"))
+	qtype := parseQueryType(req.Form.Get("TYPE"))
+	domain := req.Form.Get("DOMAIN")
+	init := req.Form.Get("MODE") == "init"
+	return &testParams{version, init, qtype, domain}
+}
 
 // Set of default headers returned for each XML HTTP requests.
 var xmlHttpHeaders = map[string]string{
@@ -62,8 +140,8 @@ var htmlHeaders = map[string]string{
 	"Pragma":                 "no-cache",
 }
 
-func getHeaders(queryType string) (headers *map[string]string) {
-	if queryType == queryHtml {
+func getHeaders(qtype queryType) (headers *map[string]string) {
+	if qtype == queryHtml {
 		headers = &htmlHeaders
 	} else {
 		headers = &xmlHttpHeaders
@@ -162,10 +240,10 @@ func (h *Handler) removeClosedSession() {
 			break
 		}
 
-		log.Printf("%s: removing from session map\n", sid)
+		log.Printf("removing %s from session map\n", sid)
 
 		if !h.channels.del(sid) {
-			log.Printf("%s: missing channel from session map\n", sid)
+			log.Printf("missing channel for %s in session map\n", sid)
 		}
 	}
 }
@@ -190,41 +268,42 @@ func (h *Handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	req.ParseForm()
+
 	path := req.URL.Path
 	if strings.HasSuffix(path, h.testPath) {
-		h.handleTestRequest(rw, req)
+		log.Printf("test:%s\n", req.URL)
+		h.handleTestRequest(rw, parseTestParams(req))
 	} else if strings.HasSuffix(path, h.bindPath) {
-		h.handleBindRequest(rw, req, values)
+		log.Printf("bind:%s:%s\n", req.Method, req.URL)
+		params, err := parseBindParams(req, values)
+		if err != nil {
+			rw.WriteHeader(400)
+			return
+		}
+		h.handleBindRequest(rw, params)
 	} else {
 		rw.WriteHeader(404)
 	}
 }
 
-func (h *Handler) handleTestRequest(rw http.ResponseWriter, req *http.Request) {
-	log.Printf("test:%s\n", req.URL)
-
-	version := req.Form.Get("VER")
-	mode := req.Form.Get("MODE")
-	qtype := req.Form.Get("TYPE")
-	domain := req.Form.Get("DOMAIN")
-
-	if version != SupportedProcolVersion {
+func (h *Handler) handleTestRequest(rw http.ResponseWriter, params *testParams) {
+	if params.ver != SupportedProcolVersion {
 		rw.Header().Set("Status", "Unsupported protocol version.")
 		rw.WriteHeader(400)
 		io.WriteString(rw, "Unsupported protocol version.")
-	} else if mode == "init" {
+	} else if params.init {
 		rw.Header().Set("Status", "OK")
 		setHeaders(rw, &xmlHttpHeaders)
 		rw.WriteHeader(200)
 		io.WriteString(rw, "[\""+getHostPrefix(h.corsInfo)+"\",\"\"]")
 	} else {
 		rw.Header().Set("Status", "OK")
-		setHeaders(rw, getHeaders(qtype))
+		setHeaders(rw, getHeaders(params.qtype))
 		rw.WriteHeader(200)
 
-		if qtype == queryHtml {
+		if params.qtype == queryHtml {
 			writeHtmlHead(rw)
-			writeHtmlDomain(rw, domain)
+			writeHtmlDomain(rw, params.domain)
 			writeHtmlRpc(rw, "11111")
 			writeHtmlPadding(rw)
 		} else {
@@ -233,7 +312,7 @@ func (h *Handler) handleTestRequest(rw http.ResponseWriter, req *http.Request) {
 
 		time.Sleep(2 * time.Second)
 
-		if qtype == queryHtml {
+		if params.qtype == queryHtml {
 			writeHtmlRpc(rw, "2")
 			writeHtmlDone(rw)
 		} else {
@@ -242,18 +321,9 @@ func (h *Handler) handleTestRequest(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (h *Handler) handleBindRequest(rw http.ResponseWriter, req *http.Request,
-	values url.Values) {
-	log.Printf("bind:%s:%s\n", req.Method, req.URL)
-
+func (h *Handler) handleBindRequest(rw http.ResponseWriter, params *bindParams) {
 	var channel *Channel
-
-	sid, err := parseSessionId(req.Form.Get("SID"))
-
-	if err != nil {
-		rw.WriteHeader(400)
-		return
-	}
+	sid := params.sid
 
 	// If the client has specified a session id, lookup the session object
 	// in the sessions map. Lookup failure should be signaled to the client
@@ -263,7 +333,7 @@ func (h *Handler) handleBindRequest(rw http.ResponseWriter, req *http.Request,
 	if sid != nullSessionId {
 		channel = h.channels.get(sid)
 		if channel == nil {
-			log.Printf("failed to lookup session (%q)\n", sid)
+			log.Printf("failed to lookup session %s\n", sid)
 			rw.Header().Set("Status", "Unknown SID")
 			setHeaders(rw, &xmlHttpHeaders)
 			rw.WriteHeader(400)
@@ -274,32 +344,31 @@ func (h *Handler) handleBindRequest(rw http.ResponseWriter, req *http.Request,
 
 	if channel == nil {
 		sid, _ = newSesionId()
-		log.Printf("%s: creating session\n", sid)
-		channel = newChannel(req.Form.Get("VER"), sid, h.gcChan, h.corsInfo)
+		log.Printf("creating session %s\n", sid)
+		channel = newChannel(params.cver, sid, h.gcChan, h.corsInfo)
 		h.channels.set(sid, channel)
 		h.connChan <- channel
 		go channel.start()
 	}
 
-	if aid, err := strconv.Atoi(req.Form.Get("AID")); err == nil {
-		channel.acknowledge(aid)
+	if params.aid != -1 {
+		channel.acknowledge(params.aid)
 	}
 
-	switch req.Method {
+	switch params.method {
 	case "POST":
-		h.handleBindPost(rw, req, channel, values)
+		h.handleBindPost(rw, params, channel)
 	case "GET":
-		h.handleBindGet(rw, req, channel)
+		h.handleBindGet(rw, params, channel)
 	default:
 		rw.WriteHeader(400)
 	}
 }
 
-func (h *Handler) handleBindPost(rw http.ResponseWriter, r *http.Request,
-	channel *Channel, values url.Values) {
-	log.Printf("%s: bind parameters: %v\n", channel.Sid, values)
+func (h *Handler) handleBindPost(rw http.ResponseWriter, params *bindParams, channel *Channel) {
+	log.Printf("%s: bind parameters: %v\n", channel.Sid, params.values)
 
-	offset, maps, err := parseIncomingMaps(values)
+	offset, maps, err := parseIncomingMaps(params.values)
 	if err != nil {
 		rw.WriteHeader(400)
 		return
@@ -319,7 +388,7 @@ func (h *Handler) handleBindPost(rw http.ResponseWriter, r *http.Request,
 		// channel. Note that the first bind request made by IE<10 does not
 		// contain a TYPE=html query parameter and therefore receives the same
 		// length prefixed array reply as is sent to the XHR streaming clients.
-		backChannel := newBackChannel(channel.Sid, rw, false, "", "")
+		backChannel := newBackChannel(channel.Sid, rw, false, "", params.rid)
 		channel.setBackChannel(backChannel)
 		backChannel.wait()
 	} else {
@@ -336,25 +405,19 @@ func (h *Handler) handleBindPost(rw http.ResponseWriter, r *http.Request,
 	}
 }
 
-func (h *Handler) handleBindGet(
-	rw http.ResponseWriter, req *http.Request, channel *Channel) {
-	queryType := req.Form.Get("TYPE")
-	domain := req.Form.Get("DOMAIN")
-	rid := req.Form.Get("zx")
-
-	if queryType == queryTerminate {
+func (h *Handler) handleBindGet(rw http.ResponseWriter, params *bindParams, channel *Channel) {
+	if params.qtype == queryTerminate {
 		channel.Close()
 	} else {
 		rw.Header().Set("Status", "OK")
-		setHeaders(rw, getHeaders(queryType))
+		setHeaders(rw, getHeaders(params.qtype))
 		rw.WriteHeader(200)
 		rw.(http.Flusher).Flush()
 
-		isHtml := queryType == queryHtml
-		bc := newBackChannel(channel.Sid, rw, isHtml, domain, rid)
-		bc.setChunked(req.Form.Get("CI") == "1")
+		isHtml := params.qtype == queryHtml
+		bc := newBackChannel(channel.Sid, rw, isHtml, params.domain, params.rid)
+		bc.setChunked(params.chunked)
 		channel.setBackChannel(bc)
 		bc.wait()
-		log.Printf("%s: bind wait done\n", channel.Sid)
 	}
 }

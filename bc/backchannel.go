@@ -50,6 +50,7 @@ func (b *backChannelBase) isChunked() bool {
 
 func (b *backChannelBase) wait() {
 	<-b.done
+	log.Printf("%s[%s] bind wait done\n", b.sid, b.rid)
 }
 
 // The chunked XHR back channel implementation.
@@ -58,7 +59,7 @@ type xhrBackChannel struct {
 }
 
 func (b *xhrBackChannel) send(data []byte) (n int, err error) {
-	log.Printf("%s:%s: xhr back channel send: %s\n", b.sid, b.rid, data)
+	log.Printf("%s[%s] xhr back channel send: %s\n", b.sid, b.rid, data)
 
 	n, err = io.WriteString(b.w,
 		strconv.FormatInt(int64(len(data)), 10)+"\n"+string(data))
@@ -73,7 +74,7 @@ func (b *xhrBackChannel) send(data []byte) (n int, err error) {
 }
 
 func (b *xhrBackChannel) discard() {
-	log.Printf("%s:%s: xhr back channel close\n", b.sid, b.rid)
+	log.Printf("%s[%s] xhr back channel close\n", b.sid, b.rid)
 	close(b.done)
 }
 
@@ -85,7 +86,7 @@ type htmlBackChannel struct {
 }
 
 func (b *htmlBackChannel) send(data []byte) (n int, err error) {
-	log.Printf("%s:%s: html back channel send: %s\n", b.sid, b.rid, data)
+	log.Printf("%s[%s] html back channel send: %s\n", b.sid, b.rid, data)
 
 	if !b.paddingSent {
 		writeHtmlHead(b.w)
@@ -109,7 +110,7 @@ func (b *htmlBackChannel) send(data []byte) (n int, err error) {
 }
 
 func (b *htmlBackChannel) discard() {
-	log.Printf("%s:%s: html back channel close\n", b.sid, b.rid)
+	log.Printf("%s %s html back channel close\n", b.sid, b.rid)
 	writeHtmlDone(b.w)
 	close(b.done)
 }
