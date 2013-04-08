@@ -275,16 +275,13 @@ func (h *Handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 func (h *Handler) handleTestRequest(rw http.ResponseWriter, params *testParams) {
 	if params.ver != SupportedProcolVersion {
-		rw.Header().Set("Status", "Unsupported protocol version.")
 		rw.WriteHeader(400)
 		io.WriteString(rw, "Unsupported protocol version.")
 	} else if params.init {
-		rw.Header().Set("Status", "OK")
 		setHeaders(rw, &headers)
 		rw.WriteHeader(200)
 		io.WriteString(rw, "[\""+getHostPrefix(h.corsInfo)+"\",\"\"]")
 	} else {
-		rw.Header().Set("Status", "OK")
 		params.qtype.setContentType(rw)
 		setHeaders(rw, &headers)
 		rw.WriteHeader(200)
@@ -365,7 +362,6 @@ func (h *Handler) handleBindPost(rw http.ResponseWriter, params *bindParams, cha
 	channel.receiveMaps(offset, maps)
 
 	if channel.state == channelInit {
-		rw.Header().Set("Status", "OK")
 		setHeaders(rw, &headers)
 		rw.WriteHeader(200)
 		rw.(http.Flusher).Flush()
@@ -385,7 +381,6 @@ func (h *Handler) handleBindPost(rw http.ResponseWriter, params *bindParams, cha
 		// does this session has a back channel, the last array id sent to the
 		// client and the number of outstanding bytes in the back channel.
 		b, _ := json.Marshal(channel.getState())
-		rw.Header().Set("Status", "OK")
 		setHeaders(rw, &headers)
 		rw.WriteHeader(200)
 		io.WriteString(rw, strconv.FormatInt(int64(len(b)), 10)+"\n")
@@ -397,7 +392,6 @@ func (h *Handler) handleBindGet(rw http.ResponseWriter, params *bindParams, chan
 	if params.qtype == queryTerminate {
 		channel.Close()
 	} else {
-		rw.Header().Set("Status", "OK")
 		params.qtype.setContentType(rw)
 		setHeaders(rw, &headers)
 		rw.WriteHeader(200)
