@@ -58,6 +58,14 @@ func parseQueryType(s string) (qtype queryType) {
 	return
 }
 
+func (qtype queryType) setContentType(rw http.ResponseWriter) {
+	if qtype == queryHtml {
+		rw.Header().Set("Content-Type", "text/html")
+	} else {
+		rw.Header().Set("Content-Type", "text/plain")
+	}
+}
+
 func parseAid(s string) (aid int, err error) {
 	aid = -1
 	if len(s) == 0 {
@@ -120,33 +128,12 @@ func parseTestParams(req *http.Request) *testParams {
 	return &testParams{version, init, qtype, domain}
 }
 
-// Set of default headers returned for each XML HTTP requests.
-var xmlHttpHeaders = map[string]string{
-	"Content-Type":           "text/plain",
+var headers = map[string]string{
 	"Cache-Control":          "no-cache, no-store, max-age=0, must-revalidate",
 	"Expires":                "Fri, 01 Jan 1990 00:00:00 GMT",
 	"X-Content-Type-Options": "nosniff",
 	"Transfer-Encoding":      "chunked",
 	"Pragma":                 "no-cache",
-}
-
-// Headers returned to html requests (IE < 10).
-var htmlHeaders = map[string]string{
-	"Content-Type":           "text/html",
-	"Cache-Control":          "no-cache, no-store, max-age=0, must-revalidate",
-	"Expires":                "Fri, 01 Jan 1990 00:00:00 GMT",
-	"X-Content-Type-Options": "nosniff",
-	"Transfer-Encoding":      "chunked",
-	"Pragma":                 "no-cache",
-}
-
-func getHeaders(qtype queryType) (headers *map[string]string) {
-	if qtype == queryHtml {
-		headers = &htmlHeaders
-	} else {
-		headers = &xmlHttpHeaders
-	}
-	return
 }
 
 type channelMap struct {
@@ -293,12 +280,13 @@ func (h *Handler) handleTestRequest(rw http.ResponseWriter, params *testParams) 
 		io.WriteString(rw, "Unsupported protocol version.")
 	} else if params.init {
 		rw.Header().Set("Status", "OK")
-		setHeaders(rw, &xmlHttpHeaders)
+		setHeaders(rw, &headers)
 		rw.WriteHeader(200)
 		io.WriteString(rw, "[\""+getHostPrefix(h.corsInfo)+"\",\"\"]")
 	} else {
 		rw.Header().Set("Status", "OK")
-		setHeaders(rw, getHeaders(params.qtype))
+		params.qtype.setContentType(rw)
+		setHeaders(rw, &headers)
 		rw.WriteHeader(200)
 
 		if params.qtype == queryHtml {
@@ -335,7 +323,7 @@ func (h *Handler) handleBindRequest(rw http.ResponseWriter, params *bindParams) 
 		if channel == nil {
 			log.Printf("failed to lookup session %s\n", sid)
 			rw.Header().Set("Status", "Unknown SID")
-			setHeaders(rw, &xmlHttpHeaders)
+			setHeaders(rw, &headers)
 			rw.WriteHeader(400)
 			io.WriteString(rw, "Unknown SID")
 			return
@@ -378,7 +366,7 @@ func (h *Handler) handleBindPost(rw http.ResponseWriter, params *bindParams, cha
 
 	if channel.state == channelInit {
 		rw.Header().Set("Status", "OK")
-		setHeaders(rw, &xmlHttpHeaders)
+		setHeaders(rw, &headers)
 		rw.WriteHeader(200)
 		rw.(http.Flusher).Flush()
 
@@ -398,7 +386,7 @@ func (h *Handler) handleBindPost(rw http.ResponseWriter, params *bindParams, cha
 		// client and the number of outstanding bytes in the back channel.
 		b, _ := json.Marshal(channel.getState())
 		rw.Header().Set("Status", "OK")
-		setHeaders(rw, &xmlHttpHeaders)
+		setHeaders(rw, &headers)
 		rw.WriteHeader(200)
 		io.WriteString(rw, strconv.FormatInt(int64(len(b)), 10)+"\n")
 		rw.Write(b)
@@ -410,7 +398,8 @@ func (h *Handler) handleBindGet(rw http.ResponseWriter, params *bindParams, chan
 		channel.Close()
 	} else {
 		rw.Header().Set("Status", "OK")
-		setHeaders(rw, getHeaders(params.qtype))
+		params.qtype.setContentType(rw)
+		setHeaders(rw, &headers)
 		rw.WriteHeader(200)
 		rw.(http.Flusher).Flush()
 
