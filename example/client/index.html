@@ -19,6 +19,11 @@
 <body>
     <h1>Go Browser Channel Example</h1>
 
+    <span>
+        <button id="connect-button">Connect</button>
+        <button id="disconnect-button">Disconnect</button>
+    </span>
+
     <form id="chat-input">
         <input type="text" name="msg"></input>
         <input type="submit" value="Send"></input>
@@ -43,7 +48,7 @@
     Handler.prototype.channelHandleMultipleArrays = null;
 
     Handler.prototype.okToMakeRequest = function(browserChannel) {
-      return goog.net.BrowserChannel.Error.OK;
+        return goog.net.BrowserChannel.Error.OK;
     };
 
     Handler.prototype.channelOpened = function(browserChannel) {
@@ -85,23 +90,51 @@
         return;
     };
 
-    var clientVersion = "cv1"
-    var handler = new Handler();
-    var channel = new goog.net.BrowserChannel(clientVersion);
-    channel.setChannelDebug(new goog.net.ChannelDebug());
-    channel.setSupportsCrossDomainXhrs(true);
-    channel.setAllowHostPrefix(true);
-    channel.setHandler(handler);
-    channel.connect('channel/test', 'channel/bind');
+    var channel = null;
 
-    var chatForm = document.getElementById('chat-input');
-    goog.events.listen(chatForm, goog.events.EventType.SUBMIT, function(e) {
+    function connectChannel() {
+        if (channel) {
+            return;
+        }
+        var clientVersion = "cv1"
+        var handler = new Handler();
+        channel = new goog.net.BrowserChannel(clientVersion);
+        channel.setChannelDebug(new goog.net.ChannelDebug());
+        channel.setSupportsCrossDomainXhrs(true);
+        channel.setAllowHostPrefix(true);
+        channel.setHandler(handler);
+        channel.connect('channel/test', 'channel/bind');
+    }
+
+    function disconnectChannel() {
+        if (!channel) {
+            return;
+        }
+        channel.disconnect();
+        channel = null;
+    }
+
+    function sendMsg(e) {
+        if (!channel) {
+            return;
+        }
         var input = e.target[0];
         var msg = input.value;
         channel.sendMap({msg: msg});
         input.value = '';
         e.preventDefault();
-    });
+    }
+
+    goog.events.listen(document.getElementById('chat-input'),
+        goog.events.EventType.SUBMIT, sendMsg);
+
+    goog.events.listen(document.getElementById('connect-button'),
+        goog.events.EventType.CLICK, connectChannel);
+
+    goog.events.listen(document.getElementById('disconnect-button'),
+        goog.events.EventType.CLICK, disconnectChannel);
+
+    connectChannel();
     </script>
 </body>
 </html>
