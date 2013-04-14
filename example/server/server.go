@@ -31,7 +31,7 @@ func main() {
 	flag.Parse()
 
 	handler := bc.NewHandler()
-	handler.SetCrossDomainPrefix("hpenvy.local:8080", "bc0")
+	handler.SetCrossDomainPrefix("mbair.local:8080", []string{"bc0", "bc1"})
 	handler.Init()
 
 	http.Handle("/channel/", handler)

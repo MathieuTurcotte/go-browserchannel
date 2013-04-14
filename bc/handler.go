@@ -6,6 +6,7 @@
 package bc
 
 import (
+	"math/rand"
 	"encoding/json"
 	"errors"
 	"io"
@@ -165,12 +166,12 @@ func (m *channelMap) del(sid SessionId) (deleted bool) {
 type crossDomainInfo struct {
 	hostMatcher *regexp.Regexp
 	domain      string
-	prefix      string
+	prefixes    []string
 }
 
 func getHostPrefix(info *crossDomainInfo) string {
 	if info != nil {
-		return info.prefix
+		return info.prefixes[rand.Intn(len(info.prefixes))]
 	}
 	return ""
 }
@@ -200,8 +201,8 @@ func NewHandler() (h *Handler) {
 // used as the Access-Control-Allow-Origin header value and should respect the
 // format specified in http://www.w3.org/TR/cors/. The prefix is used to set
 // the hostPrefix parameter on the client side.
-func (h *Handler) SetCrossDomainPrefix(domain string, prefix string) {
-	h.corsInfo = &crossDomainInfo{makeOriginMatcher(domain), domain, prefix}
+func (h *Handler) SetCrossDomainPrefix(domain string, prefixes []string) {
+	h.corsInfo = &crossDomainInfo{makeOriginMatcher(domain), domain, prefixes}
 }
 
 // Initializes the browser channel handler.
