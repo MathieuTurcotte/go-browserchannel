@@ -309,16 +309,15 @@ func (h *Handler) handleBindRequest(rw http.ResponseWriter, params *bindParams) 
 	var channel *Channel
 	sid := params.sid
 
-	// If the client has specified a session id, lookup the session object
-	// in the sessions map. Lookup failure should be signaled to the client
-	// using a 400 status code and a message containing 'Unknown SID'. See
+	// If the client has specified a session id, lookup the session object in
+	// the sessions map. Lookup failure should be signaled to the client using
+	// a 400 status code and a message containing 'Unknown SID'. See
 	// goog/net/channelrequest.js for more context on how this error is
 	// handled.
 	if sid != nullSessionId {
 		channel = h.channels.get(sid)
 		if channel == nil {
 			log.Printf("failed to lookup session %s\n", sid)
-			rw.Header().Set("Status", "Unknown SID")
 			setHeaders(rw, &headers)
 			rw.WriteHeader(400)
 			io.WriteString(rw, "Unknown SID")
