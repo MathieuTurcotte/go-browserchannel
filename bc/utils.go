@@ -4,6 +4,7 @@
 package bc
 
 import (
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -12,6 +13,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+)
+
+var (
+	ErrBadMap       = errors.New("bad map")
+	ErrBodyTooLarge = errors.New("body too large")
 )
 
 // Creates a regexp that matches an origin and all its subdomains. Both http

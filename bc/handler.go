@@ -25,8 +25,6 @@ const SupportedProcolVersion = 8
 
 var (
 	ErrClosed       = errors.New("handler closed")
-	ErrBadMap       = errors.New("bad map")
-	ErrBodyTooLarge = errors.New("body too large")
 )
 
 const (
