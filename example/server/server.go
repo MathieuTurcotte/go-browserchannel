@@ -41,6 +41,10 @@ func HandleChannel(channel *bc.Channel) {
 		m, ok := channel.ReadMap()
 		if !ok {
 			log.Printf("%s: returned with no data, closing\n", channel.Sid)
+
+			channels.Lock()
+			delete(channels.m, channel.Sid)
+			channels.Unlock()
 			break
 		}
 
