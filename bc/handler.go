@@ -6,11 +6,11 @@
 package bc
 
 import (
-	"math/rand"
 	"encoding/json"
 	"errors"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -24,7 +24,7 @@ import (
 const SupportedProcolVersion = 8
 
 var (
-	ErrClosed       = errors.New("handler closed")
+	ErrClosed = errors.New("handler closed")
 )
 
 const (
