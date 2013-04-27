@@ -5,17 +5,37 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"github.com/MathieuTurcotte/go-browserchannel/bc"
 	"log"
 	"net/http"
+	"sync"
 )
 
 var public = flag.String("public_directory", "", "path to public directory")
 var port = flag.String("port", "8080", "the port to listen on")
 var hostname = flag.String("hostname", "hpenvy.local", "the server hostname")
 
+var channels = struct {
+	sync.RWMutex
+	m map[bc.SessionId]*bc.Channel
+}{m: make(map[bc.SessionId]*bc.Channel)}
+
+func broadcast(m *bc.Map) {
+	channels.RLock()
+	defer channels.RUnlock()
+
+	for _, c := range channels.m {
+		c.SendArray([]interface{}{fmt.Sprintf("%#v", *m)})
+	}
+}
+
 func HandleChannel(channel *bc.Channel) {
 	log.Printf("Handlechannel (%q)\n", channel.Sid)
+
+	channels.Lock()
+	channels.m[channel.Sid] = channel
+	channels.Unlock()
 
 	for {
 		m, ok := channel.ReadMap()
@@ -25,7 +45,7 @@ func HandleChannel(channel *bc.Channel) {
 		}
 
 		log.Printf("%s: map: %#v\n", channel.Sid, *m)
-		channel.SendArray([]interface{}{"a", "b", "c"})
+		broadcast(m)
 	}
 }
 
