@@ -11,6 +11,8 @@ import (
 )
 
 var public = flag.String("public_directory", "", "path to public directory")
+var port = flag.String("port", "8080", "the port to listen on")
+var hostname = flag.String("hostname", "hpenvy.local", "the server hostname")
 
 func HandleChannel(channel *bc.Channel) {
 	log.Printf("Handlechannel (%q)\n", channel.Sid)
@@ -31,7 +33,7 @@ func main() {
 	flag.Parse()
 
 	handler := bc.NewHandler()
-	handler.SetCrossDomainPrefix("mbair.local:8080", []string{"bc0", "bc1"})
+	handler.SetCrossDomainPrefix(*hostname+":"+*port, []string{"bc0", "bc1"})
 	handler.Init()
 
 	http.Handle("/channel/", handler)
@@ -49,7 +51,7 @@ func main() {
 		}
 	}()
 
-	err := http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":"+*port, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
