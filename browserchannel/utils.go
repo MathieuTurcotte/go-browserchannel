@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	ErrBadMap       = errors.New("bad map")
-	ErrBodyTooLarge = errors.New("body too large")
+	errBadMap       = errors.New("bad map")
+	errBodyTooLarge = errors.New("body too large")
 )
 
 // Creates a regexp that matches an origin and all its subdomains. Both http
@@ -46,7 +46,7 @@ func parseBody(r io.ReadCloser) (values url.Values, err error) {
 	}
 
 	if int64(len(body)) > maxFormSize {
-		err = ErrBodyTooLarge
+		err = errBodyTooLarge
 		return
 	}
 
@@ -85,7 +85,7 @@ func parseIncomingMaps(values url.Values) (offset int, maps []Map, err error) {
 
 	if err != nil {
 		offset = 0
-		err = ErrBadMap
+		err = errBadMap
 		return
 	}
 
@@ -119,7 +119,7 @@ func parseMapEntry(maps []Map, count int, key string, value string) (err error) 
 	if len(keyParts) == 2 {
 		id, cerr := strconv.Atoi(keyParts[0])
 		if cerr != nil || id > count {
-			err = ErrBadMap
+			err = errBadMap
 			return
 		}
 		mapKey := keyParts[1]
