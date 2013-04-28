@@ -24,7 +24,9 @@ import (
 const SupportedProcolVersion = 8
 
 const (
+	// The path for the channel connection.
 	DefaultBindPath = "bind"
+	// The path for the test connection.
 	DefaultTestPath = "test"
 )
 
@@ -170,8 +172,11 @@ func getHostPrefix(info *crossDomainInfo) string {
 	return ""
 }
 
+// The browser channel HTTP handler will invoke its ChannelHandler in a
+// goroutine for each new browser channel connection established.
 type ChannelHandler func(*Channel)
 
+// The browser channel http.Handler.
 type Handler struct {
 	corsInfo    *crossDomainInfo
 	prefix      string
@@ -182,7 +187,8 @@ type Handler struct {
 	chanHandler ChannelHandler
 }
 
-// Creates a new browser channel handler.
+// Creates a new browser channel HTTP handler. The last path segment of the
+// URL is used to distinguish bind and test connections.
 func NewHandler(chanHandler ChannelHandler) (h *Handler) {
 	h = new(Handler)
 	h.channels = &channelMap{m: make(map[SessionId]*Channel)}
