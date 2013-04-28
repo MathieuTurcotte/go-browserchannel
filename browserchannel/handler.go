@@ -6,6 +6,7 @@
 package browserchannel
 
 import (
+	crand "crypto/rand"
 	"encoding/json"
 	"io"
 	"log"
@@ -311,7 +312,7 @@ func (h *Handler) handleBindRequest(rw http.ResponseWriter, params *bindParams) 
 	}
 
 	if channel == nil {
-		sid, _ = newSesionId()
+		sid, _ = generateSesionId(crand.Reader)
 		log.Printf("creating session %s\n", sid)
 		channel = newChannel(params.cver, sid, h.gcChan, h.corsInfo)
 		h.channels.set(sid, channel)

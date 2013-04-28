@@ -4,29 +4,31 @@
 package browserchannel
 
 import (
-	"crypto/rand"
 	"encoding/hex"
-	"fmt"
+	"errors"
+	"io"
 )
 
 const bytesPerSessionId = 16
 
-var nullSessionId = SessionId{}
+type SessionId [bytesPerSessionId]byte
 
-type SessionId struct {
-	bytes [bytesPerSessionId]byte
-}
+var (
+	nullSessionId       = SessionId{}
+	errInvalidSessionId = errors.New("invalid session id string")
+)
 
-func newSesionId() (sid SessionId, err error) {
+// Generates a SessionId using the given reader as byte source.
+func generateSesionId(source io.Reader) (sid SessionId, err error) {
 	sid = SessionId{}
-	n, err := rand.Read(sid.bytes[:])
-	if n != bytesPerSessionId && err == nil {
-		err = fmt.Errorf("unable to generate session id (read %d bytes "+
-			"but needed %d)", n, bytesPerSessionId)
-	}
+	_, err = io.ReadFull(source, sid[:])
 	return
 }
 
+// Parses the hexadecimal string into a SessionId instance.
+//
+// If the hexadecimal string is empty, nullSessionId is returned without an
+// error code. Otherwise, errInvalidSessionId is returned.
 func parseSessionId(repr string) (sid SessionId, err error) {
 	sid = nullSessionId
 
@@ -34,14 +36,18 @@ func parseSessionId(repr string) (sid SessionId, err error) {
 		return
 	}
 
-	b, err := hex.DecodeString(repr)
-	if err == nil {
-		copy(sid.bytes[:], b)
+	decoded, err := hex.DecodeString(repr)
+
+	if err != nil || len(decoded) != bytesPerSessionId {
+		err = errInvalidSessionId
+		return
 	}
 
+	copy(sid[:], decoded)
 	return
 }
 
+// Gets the hexadecimal representation of the SessionId.
 func (s SessionId) String() string {
-	return hex.EncodeToString(s.bytes[:])
+	return hex.EncodeToString(s[:])
 }
