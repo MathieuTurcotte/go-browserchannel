@@ -174,24 +174,26 @@ func getHostPrefix(info *crossDomainInfo) string {
 	return ""
 }
 
+type ChannelHandler func(*Channel)
+
 type Handler struct {
-	corsInfo *crossDomainInfo
-	prefix   string
-	channels *channelMap
-	bindPath string
-	testPath string
-	gcChan   chan SessionId
-	connChan chan *Channel
+	corsInfo    *crossDomainInfo
+	prefix      string
+	channels    *channelMap
+	bindPath    string
+	testPath    string
+	gcChan      chan SessionId
+	chanHandler ChannelHandler
 }
 
 // Creates a new browser channel handler.
-func NewHandler() (h *Handler) {
+func NewHandler(chanHandler ChannelHandler) (h *Handler) {
 	h = new(Handler)
 	h.channels = &channelMap{m: make(map[SessionId]*Channel)}
 	h.bindPath = DefaultBindPath
 	h.testPath = DefaultTestPath
 	h.gcChan = make(chan SessionId, 10)
-	h.connChan = make(chan *Channel)
+	h.chanHandler = chanHandler
 	go h.removeClosedSession()
 	return
 }
@@ -202,15 +204,6 @@ func NewHandler() (h *Handler) {
 // the hostPrefix parameter on the client side.
 func (h *Handler) SetCrossDomainPrefix(domain string, prefixes []string) {
 	h.corsInfo = &crossDomainInfo{makeOriginMatcher(domain), domain, prefixes}
-}
-
-// Accept waits for and returns the next channel to the listener.
-func (h *Handler) Accept() (channel *Channel, err error) {
-	channel, ok := <-h.connChan
-	if !ok {
-		err = ErrClosed
-	}
-	return
 }
 
 // Removes closed channels from the handler's channel map.
@@ -327,7 +320,7 @@ func (h *Handler) handleBindRequest(rw http.ResponseWriter, params *bindParams) 
 		log.Printf("creating session %s\n", sid)
 		channel = newChannel(params.cver, sid, h.gcChan, h.corsInfo)
 		h.channels.set(sid, channel)
-		h.connChan <- channel
+		go h.chanHandler(channel)
 		go channel.start()
 	}
 

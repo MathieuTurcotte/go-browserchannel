@@ -30,7 +30,7 @@ func broadcast(m *bc.Map) {
 	}
 }
 
-func HandleChannel(channel *bc.Channel) {
+func handleChannel(channel *bc.Channel) {
 	log.Printf("Handlechannel (%q)\n", channel.Sid)
 
 	channels.Lock()
@@ -56,23 +56,11 @@ func HandleChannel(channel *bc.Channel) {
 func main() {
 	flag.Parse()
 
-	handler := bc.NewHandler()
+	handler := bc.NewHandler(handleChannel)
 	handler.SetCrossDomainPrefix(*hostname+":"+*port, []string{"bc0", "bc1"})
 
 	http.Handle("/channel/", handler)
 	http.Handle("/", http.FileServer(http.Dir(*public)))
-
-	// TODO: If no one reads from the handler, new channels won't be
-	// served and the whole server will block. This is a problem.
-	go func() {
-		for {
-			channel, err := handler.Accept()
-			if err != nil {
-				log.Fatal("handler.Accept: ", err)
-			}
-			go HandleChannel(channel)
-		}
-	}()
 
 	err := http.ListenAndServe(":"+*port, nil)
 	if err != nil {
