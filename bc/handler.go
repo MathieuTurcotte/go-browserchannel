@@ -23,10 +23,6 @@ import (
 // The browser channel protocol version implemented by this library.
 const SupportedProcolVersion = 8
 
-var (
-	ErrClosed = errors.New("handler closed")
-)
-
 const (
 	DefaultBindPath = "bind"
 	DefaultTestPath = "test"
