@@ -1,7 +1,7 @@
 // Copyright (c) 2013 Mathieu Turcotte
 // Licensed under the MIT license.
 
-package bc
+package browserchannel
 
 import "io"
 

@@ -6,7 +6,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/MathieuTurcotte/go-browserchannel/bc"
+	bc "github.com/MathieuTurcotte/go-browserchannel/browserchannel"
 	"log"
 	"net/http"
 	"sync"

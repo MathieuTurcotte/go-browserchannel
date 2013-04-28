@@ -9,14 +9,14 @@ The client-side javascript implementation is provided by the
 Installing
 ==========
 
-    $ go get github.com/MathieuTurcotte/go-browserchannel/bc
+    $ go get github.com/MathieuTurcotte/go-browserchannel/browserchannel
 
 Documentation
 =============
 
-Read it [online](http://godoc.org/github.com/MathieuTurcotte/go-browserchannel/bc) or run
+Read it [online](http://godoc.org/github.com/MathieuTurcotte/go-browserchannel/browserchannel) or run
 
-    $ go doc github.com/MathieuTurcotte/go-browserchannel/bc
+    $ go doc github.com/MathieuTurcotte/go-browserchannel/browserchannel
 
 License
 =======

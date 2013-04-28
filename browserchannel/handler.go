@@ -3,7 +3,7 @@
 
 // Package browserchannel provides a server-side browser channel
 // implementation. See http://goo.gl/F287G for the client-side API.
-package bc
+package browserchannel
 
 import (
 	"encoding/json"

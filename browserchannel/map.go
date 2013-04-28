@@ -1,7 +1,7 @@
 // Copyright (c) 2013 Mathieu Turcotte
 // Licensed under the MIT license.
 
-package bc
+package browserchannel
 
 // Type of the data transmitted from the client to the server.
 type Map map[string]string
