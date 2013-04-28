@@ -115,13 +115,12 @@
     }
 
     function sendMsg(e) {
-        if (!channel) {
-            return;
+        if (channel) {
+            var input = e.target[0];
+            var msg = input.value;
+            channel.sendMap({msg: msg});
+            input.value = '';
         }
-        var input = e.target[0];
-        var msg = input.value;
-        channel.sendMap({msg: msg});
-        input.value = '';
         e.preventDefault();
     }
 
