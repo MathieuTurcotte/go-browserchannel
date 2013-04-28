@@ -7,7 +7,6 @@ package bc
 
 import (
 	"encoding/json"
-	"errors"
 	"io"
 	"log"
 	"math/rand"
