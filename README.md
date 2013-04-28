@@ -14,7 +14,7 @@ Installing
 Documentation
 =============
 
-Read it [online](http://go.pkgdoc.org/github.com/MathieuTurcotte/go-broswerchannel/bc) or run
+Read it [online](http://godoc.org/github.com/MathieuTurcotte/go-browserchannel/bc) or run
 
     $ go doc github.com/MathieuTurcotte/go-browserchannel/bc
 
