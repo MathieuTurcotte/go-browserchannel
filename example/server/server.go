@@ -58,7 +58,6 @@ func main() {
 
 	handler := bc.NewHandler()
 	handler.SetCrossDomainPrefix(*hostname+":"+*port, []string{"bc0", "bc1"})
-	handler.Init()
 
 	http.Handle("/channel/", handler)
 	http.Handle("/", http.FileServer(http.Dir(*public)))

@@ -192,6 +192,7 @@ func NewHandler() (h *Handler) {
 	h.testPath = DefaultTestPath
 	h.gcChan = make(chan SessionId, 10)
 	h.connChan = make(chan *Channel)
+	go h.removeClosedSession()
 	return
 }
 
@@ -201,12 +202,6 @@ func NewHandler() (h *Handler) {
 // the hostPrefix parameter on the client side.
 func (h *Handler) SetCrossDomainPrefix(domain string, prefixes []string) {
 	h.corsInfo = &crossDomainInfo{makeOriginMatcher(domain), domain, prefixes}
-}
-
-// Initializes the browser channel handler.
-func (h *Handler) Init() *Handler {
-	go h.removeClosedSession()
-	return h
 }
 
 // Accept waits for and returns the next channel to the listener.
@@ -229,7 +224,6 @@ func (h *Handler) removeClosedSession() {
 		log.Printf("removing %s from session map\n", sid)
 
 		if channel, ok := h.channels.del(sid); ok {
-			log.Printf("%s\n", channel.Sid)
 			channel.dispose()
 		} else {
 			log.Printf("missing channel for %s in session map\n", sid)
