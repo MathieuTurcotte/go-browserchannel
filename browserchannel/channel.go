@@ -44,9 +44,11 @@ type operation interface {
 
 // There is one Channel instance per connection. Each instance run in its own
 // goroutine until it is being closed either on the client-side or on the
-// server-side due to a timeout.
+// server-side.
 type Channel struct {
+	// The client specific version string.
 	Version string
+	// The channel session id.
 	Sid     SessionId
 	state   channelState
 
@@ -121,18 +123,23 @@ func (c *Channel) start() {
 	c.log("shutted down")
 }
 
-func (c *Channel) SendArray(array []interface{}) {
+// Sends an array on the channel.
+func (c *Channel) SendArray(array Array) {
 	select {
 	case c.arrayChan <- array:
 	default:
 	}
 }
 
+// Reads a map from the client. The call Will block until the there's a map
+// ready or the channel is closed in which case the ok argument will be false.
 func (c *Channel) ReadMap() (m *Map, ok bool) {
 	m, ok = <-c.mapChan
 	return
 }
 
+// Closes the channel. After a channel has been closed, read calls will
+// return immediately and arrays sent on the client will be dropped.
 func (c *Channel) Close() {
 	c.opChan <- new(closeOp)
 }
