@@ -152,10 +152,10 @@ func (m *channelMap) set(sid SessionId, channel *Channel) {
 	m.m[sid] = channel
 }
 
-func (m *channelMap) del(sid SessionId) (deleted bool) {
+func (m *channelMap) del(sid SessionId) (c *Channel, deleted bool) {
 	m.Lock()
 	defer m.Unlock()
-	_, deleted = m.m[sid]
+	c, deleted = m.m[sid]
 	delete(m.m, sid)
 	return
 }
@@ -228,7 +228,10 @@ func (h *Handler) removeClosedSession() {
 
 		log.Printf("removing %s from session map\n", sid)
 
-		if !h.channels.del(sid) {
+		if channel, ok := h.channels.del(sid); ok {
+			log.Printf("%s\n", channel.Sid)
+			channel.dispose()
+		} else {
 			log.Printf("missing channel for %s in session map\n", sid)
 		}
 	}

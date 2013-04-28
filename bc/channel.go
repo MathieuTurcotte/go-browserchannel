@@ -24,6 +24,7 @@ const (
 	channelInit channelState = iota
 	channelReady
 	channelClosed
+	channelDisposed
 )
 
 // Type of the data transmitted from the server to the client. The values
@@ -81,7 +82,7 @@ func newChannel(clientVersion string, sid SessionId, gcChan chan<- SessionId,
 		gcChan:         gcChan,
 		opChan:         make(chan operation, 10),
 		mapChan:        make(chan *Map, 10),
-		arrayChan:      make(chan Array),
+		arrayChan:      make(chan Array, 10),
 	}
 }
 
@@ -92,16 +93,18 @@ func (c *Channel) log(format string, v ...interface{}) {
 func (c *Channel) start() {
 	c.armChannelTimeout()
 
-	for c.state != channelClosed {
+	for c.state != channelDisposed {
 		select {
-		case op := <-c.opChan:
-			op.execute(c)
+		case op, ok := <-c.opChan:
+			if ok {
+				op.execute(c)
+			}
 		case <-timerChan(c.ackTimeout):
 			c.log("ack timeout")
 			c.clearBackChannel(false /* permanent */)
 		case <-timerChan(c.channelTimeout):
 			c.log("channel timeout")
-			c.Close()
+			c.closeInternal()
 		case <-timerChan(c.backChannelExpiration):
 			c.log("back channel timeout")
 			c.clearBackChannel(false /* permanent */)
@@ -114,10 +117,15 @@ func (c *Channel) start() {
 			c.flush()
 		}
 	}
+
+	c.log("shutted down")
 }
 
 func (c *Channel) SendArray(array []interface{}) {
-	c.arrayChan <- array
+	select {
+	case c.arrayChan <- array:
+	default:
+	}
 }
 
 func (c *Channel) ReadMap() (m *Map, ok bool) {
@@ -126,13 +134,30 @@ func (c *Channel) ReadMap() (m *Map, ok bool) {
 }
 
 func (c *Channel) Close() {
-	if c.state == channelClosed {
+	c.opChan <- new(closeOp)
+}
+
+type closeOp int
+
+func (op *closeOp) execute(c *Channel) {
+	c.closeInternal()
+}
+
+func (c *Channel) closeInternal() {
+	if c.state == channelClosed || c.state == channelDisposed {
 		return
 	}
 
 	c.clearBackChannel(true /* permanent */)
 	c.state = channelClosed
+	close(c.mapChan)
 	c.gcChan <- c.Sid
+}
+
+func (c *Channel) dispose() {
+	c.state = channelDisposed
+	close(c.arrayChan)
+	close(c.opChan)
 }
 
 func (c *Channel) getState() []int {
@@ -167,9 +192,13 @@ type receiveMapsOp struct {
 }
 
 func (op *receiveMapsOp) execute(c *Channel) {
-	c.log("%v", op.maps)
-	c.maps.enqueue(op.offset, op.maps)
-	c.dequeueMaps()
+	if c.state == channelReady {
+		c.log("receive %v", op.maps)
+		c.maps.enqueue(op.offset, op.maps)
+		c.dequeueMaps()
+	} else {
+		c.log("drop %v; channel isn't ready", op.maps)
+	}
 }
 
 func (c *Channel) dequeueMaps() {
@@ -189,7 +218,9 @@ func (c *Channel) queueArray(a Array) {
 }
 
 func (c *Channel) acknowledge(aid int) {
-	c.opChan <- &acknowledgeOp{aid}
+	if c.state != channelClosed {
+		c.opChan <- &acknowledgeOp{aid}
+	}
 }
 
 type acknowledgeOp struct {
