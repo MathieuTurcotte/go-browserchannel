@@ -36,8 +36,11 @@ type outgoingArray struct {
 	elements Array
 }
 
-// Interface for the operations that are queued on the internal channel event
-// loop.
+// All calls that are modifying the browser channel state are transformed into
+// operations and then queued on the browser channel internal operation
+// channel. Operations are executed by the browser channel goroutine. Because
+// of that, there is no synchronization logic required on a per-operation
+// basis since operations are all guarantied to be executed sequentially.
 type operation interface {
 	execute(*Channel)
 }
