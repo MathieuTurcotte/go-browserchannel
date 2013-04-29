@@ -49,8 +49,8 @@ type Channel struct {
 	// The client specific version string.
 	Version string
 	// The channel session id.
-	Sid     SessionId
-	state   channelState
+	Sid   SessionId
+	state channelState
 
 	backChannel backChannel
 	corsInfo    *crossDomainInfo
@@ -82,9 +82,9 @@ func newChannel(clientVersion string, sid SessionId, gcChan chan<- SessionId,
 		maps:           newMapQueue(100 /* capacity */),
 		outgoingArrays: []*outgoingArray{},
 		gcChan:         gcChan,
-		opChan:         make(chan operation, 10),
-		mapChan:        make(chan *Map, 10),
-		arrayChan:      make(chan Array, 10),
+		opChan:         make(chan operation, 100),
+		mapChan:        make(chan *Map, 100),
+		arrayChan:      make(chan Array, 100),
 	}
 }
 
@@ -95,9 +95,19 @@ func (c *Channel) log(format string, v ...interface{}) {
 func (c *Channel) start() {
 	c.armChannelTimeout()
 
+	// The channel is marked as disposed once it has been removed from the http
+	// handler channel map. The opChan is closed immediately after the channel
+	// is marked as disposed which unblock the select statement and shuts down
+	// the channel permanently.
 	for c.state != channelDisposed {
 		select {
 		case op, ok := <-c.opChan:
+			// It is possible for operations to be queued on the channel even after it
+			// has been closed since it is still present in the handler map at this
+			// point. Operations attempted on a closed channel should simply be ignored
+			// but still serviced in order to avoid to block the operation channel.
+			// This has to be done on a per-operation basis since some operations might
+			// require some cleanup to be performed.
 			if ok {
 				op.execute(c)
 			}
@@ -151,7 +161,9 @@ func (op *closeOp) execute(c *Channel) {
 }
 
 func (c *Channel) closeInternal() {
-	if c.state == channelClosed || c.state == channelDisposed {
+	// The channel could have been closed due to a timeout right
+	// before someone called the Close method on it.
+	if c.state == channelClosed {
 		return
 	}
 
@@ -225,9 +237,7 @@ func (c *Channel) queueArray(a Array) {
 }
 
 func (c *Channel) acknowledge(aid int) {
-	if c.state != channelClosed {
-		c.opChan <- &acknowledgeOp{aid}
-	}
+	c.opChan <- &acknowledgeOp{aid}
 }
 
 type acknowledgeOp struct {
@@ -261,7 +271,11 @@ type setBackChannelOp struct {
 func (op *setBackChannelOp) execute(c *Channel) {
 	c.log("set back channel [chunked:%t]", op.bChannel.isChunked())
 
-	if c.state == channelInit {
+	if c.state == channelClosed {
+		// Make sure to discard the back channel otherwise the calling goroutine
+		// will end up waiting forever on its completion.
+		op.bChannel.discard()
+	} else if c.state == channelInit {
 		hostPrefix := getHostPrefix(c.corsInfo)
 		c.queueArray(Array{"c", c.Sid.String(), hostPrefix, 8})
 		c.state = channelReady
@@ -332,6 +346,8 @@ func (c *Channel) clearBackChannel(permanent bool) {
 	c.backChannel.discard()
 	c.backChannel = nil
 
+	// When the back channel is cleared permanently, this means that the channel
+	// is being shut down. The channel timeout shouldn't be arm in this case.
 	if !permanent {
 		c.armChannelTimeout()
 	}
