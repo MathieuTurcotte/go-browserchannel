@@ -72,7 +72,6 @@ type Channel struct {
 	gcChan    chan<- SessionId
 	opChan    chan operation
 	mapChan   chan *Map
-	arrayChan chan Array
 }
 
 func newChannel(clientVersion string, sid SessionId, gcChan chan<- SessionId,
@@ -87,7 +86,6 @@ func newChannel(clientVersion string, sid SessionId, gcChan chan<- SessionId,
 		gcChan:         gcChan,
 		opChan:         make(chan operation, 100),
 		mapChan:        make(chan *Map, 100),
-		arrayChan:      make(chan Array, 100),
 	}
 }
 
@@ -127,9 +125,6 @@ func (c *Channel) start() {
 			c.log("back channel heartbeat")
 			c.queueArray(Array{"noop"})
 			c.flush()
-		case array := <-c.arrayChan:
-			c.queueArray(array)
-			c.flush()
 		}
 	}
 
@@ -138,10 +133,16 @@ func (c *Channel) start() {
 
 // Sends an array on the channel.
 func (c *Channel) SendArray(array Array) {
-	select {
-	case c.arrayChan <- array:
-	default:
-	}
+	c.opChan <- &sendArrayOp{array}
+}
+
+type sendArrayOp struct {
+	array Array
+}
+
+func (op *sendArrayOp) execute(c *Channel) {
+	c.queueArray(op.array)
+	c.flush()
 }
 
 // Reads a map from the client. The call Will block until the there's a map
@@ -178,7 +179,6 @@ func (c *Channel) closeInternal() {
 
 func (c *Channel) dispose() {
 	c.state = channelDisposed
-	close(c.arrayChan)
 	close(c.opChan)
 }
 
