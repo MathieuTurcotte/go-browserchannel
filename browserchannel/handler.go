@@ -202,8 +202,9 @@ func NewHandler(chanHandler ChannelHandler) (h *Handler) {
 
 // Sets the cross domain information for this browser channel. The origin is
 // used as the Access-Control-Allow-Origin header value and should respect the
-// format specified in http://www.w3.org/TR/cors/. The prefix is used to set
-// the hostPrefix parameter on the client side.
+// format specified by http://www.w3.org/TR/cors/. The prefixes are used to set
+// the hostPrefix parameter on the client side. The prefix assigned to each
+// browser channel session is chosen randomly from the array of prefixes.
 func (h *Handler) SetCrossDomainPrefix(domain string, prefixes []string) {
 	h.corsInfo = &crossDomainInfo{makeOriginMatcher(domain), domain, prefixes}
 }
