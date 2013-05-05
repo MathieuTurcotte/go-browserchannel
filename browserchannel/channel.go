@@ -19,9 +19,8 @@ var (
 const (
 	maxOutgoingArrays          = 100
 	channelReopenTimeoutDelay  = 20 * time.Second
-	backChannelExpirationDelay = 1 * time.Minute
+	backChannelExpirationDelay = 3 * time.Minute
 	backChannelHeartbeatDelay  = 30 * time.Second
-	ackTimeoutDelay            = 1 * time.Minute
 )
 
 type channelState int
@@ -72,7 +71,6 @@ type Channel struct {
 	lastArrayId     int
 	lastSentArrayId int
 
-	ackTimeout            *time.Timer
 	channelTimeout        *time.Timer
 	backChannelExpiration *time.Timer
 	backChannelHeartbeat  *time.Ticker
@@ -137,7 +135,6 @@ func (c *Channel) flush() {
 	data, _ := marshalOutgoingArrays(c.outgoingArrays[next:])
 	c.backChannel.send(data)
 	c.lastSentArrayId = c.lastArrayId
-	c.resetAckTimeout()
 
 	// If the channel is in the write closed state, i.e. was closed from the
 	// server side, then permanently shutdown the channel. The client won't
@@ -254,8 +251,6 @@ func (c *Channel) acknowledgeArrays(aid int) {
 	out := make([]*outgoingArray, len(c.outgoingArrays))
 	copy(out, c.outgoingArrays)
 	c.outgoingArrays = out
-
-	c.clearAckTimeout()
 }
 
 // Sets or replaces the back channel.
@@ -305,7 +300,6 @@ func (c *Channel) clearBackChannel(permanent bool) {
 
 	c.log("clear back channel %s", c.backChannel.getRequestId())
 
-	c.clearAckTimeout()
 	c.clearBackChannelTimeouts()
 
 	c.backChannel.discard()
@@ -316,24 +310,6 @@ func (c *Channel) clearBackChannel(permanent bool) {
 	if !permanent {
 		c.armChannelTimeout()
 	}
-}
-
-func (c *Channel) clearAckTimeout() {
-	if c.ackTimeout != nil {
-		c.ackTimeout.Stop()
-		c.ackTimeout = nil
-	}
-}
-
-func (c *Channel) resetAckTimeout() {
-	c.clearAckTimeout()
-	c.ackTimeout = time.AfterFunc(ackTimeoutDelay, func() {
-		c.lock.Lock()
-		defer c.lock.Unlock()
-
-		c.log("ack timeout")
-		c.clearBackChannel(false /* permanent */)
-	})
 }
 
 func (c *Channel) armBackChannelTimeouts() {
