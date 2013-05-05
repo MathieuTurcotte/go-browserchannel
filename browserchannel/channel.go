@@ -184,6 +184,7 @@ func (c *Channel) terminate() {
 
 func (c *Channel) terminateInternal() {
 	c.clearBackChannel(true /* permanent */)
+	c.heartbeatStop <- true
 	c.state = channelClosed
 	c.gcChan <- c.Sid
 
@@ -266,6 +267,7 @@ func (c *Channel) setBackChannel(bc backChannel) {
 	c.log("set back channel [rid:%s,chunked:%t]", bc.getRequestId(), bc.isChunked())
 
 	if c.state == channelInit {
+		go heartbeat(c, c.backChannelHeartbeat.C, c.heartbeatStop)
 		hostPrefix := getHostPrefix(c.corsInfo)
 		c.queueArray(Array{"c", c.Sid.String(), hostPrefix, 8})
 		c.state = channelReady
@@ -320,8 +322,6 @@ func (c *Channel) armBackChannelTimeouts() {
 		c.log("back channel expired")
 		c.clearBackChannel(false /* permanent */)
 	})
-
-	go heartbeat(c, c.backChannelHeartbeat.C, c.heartbeatStop)
 }
 
 func heartbeat(c *Channel, ticks <-chan time.Time, stops <-chan bool) {
@@ -342,7 +342,6 @@ func heartbeat(c *Channel, ticks <-chan time.Time, stops <-chan bool) {
 func (c *Channel) clearBackChannelTimeouts() {
 	c.backChannelExpiration.Stop()
 	c.backChannelExpiration = nil
-	c.heartbeatStop <- true
 }
 
 func (c *Channel) armChannelTimeout() {
