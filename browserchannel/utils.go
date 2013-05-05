@@ -12,7 +12,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 )
 
 var (
@@ -126,23 +125,5 @@ func parseMapEntry(maps []Map, count int, key string, value string) (err error) 
 		maps[id][mapKey] = value
 	}
 
-	return
-}
-
-// Helper that returns a channel of time if the time.Timer is defined and and a
-// nil channel otherwise.
-func timerChan(t *time.Timer) (c <-chan time.Time) {
-	if t != nil {
-		c = t.C
-	}
-	return
-}
-
-// Helper that returns a channel of time if the time.Ticker is defined and and
-// a nil channel otherwise.
-func tickerChan(t *time.Ticker) (c <-chan time.Time) {
-	if t != nil {
-		c = t.C
-	}
 	return
 }

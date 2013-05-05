@@ -150,10 +150,10 @@ func (m *channelMap) set(sid SessionId, channel *Channel) {
 	m.m[sid] = channel
 }
 
-func (m *channelMap) del(sid SessionId) (c *Channel, deleted bool) {
+func (m *channelMap) del(sid SessionId) (deleted bool) {
 	m.Lock()
 	defer m.Unlock()
-	c, deleted = m.m[sid]
+	_, deleted = m.m[sid]
 	delete(m.m, sid)
 	return
 }
@@ -218,9 +218,7 @@ func (h *Handler) removeClosedSession() {
 
 		log.Printf("removing %s from session map\n", sid)
 
-		if channel, ok := h.channels.del(sid); ok {
-			channel.dispose()
-		} else {
+		if !h.channels.del(sid) {
 			log.Printf("missing channel for %s in session map\n", sid)
 		}
 	}
@@ -322,12 +320,12 @@ func (h *Handler) handleBindRequest(rw http.ResponseWriter, params *bindParams) 
 		log.Printf("creating session %s\n", sid)
 		channel = newChannel(params.cver, sid, h.gcChan, h.corsInfo)
 		h.channels.set(sid, channel)
+		channel.armChannelTimeout()
 		go h.chanHandler(channel)
-		go channel.start()
 	}
 
 	if params.aid != -1 {
-		channel.acknowledge(params.aid)
+		channel.acknowledgeArrays(params.aid)
 	}
 
 	switch params.method {
@@ -380,7 +378,7 @@ func (h *Handler) handleBindPost(rw http.ResponseWriter, params *bindParams, cha
 
 func (h *Handler) handleBindGet(rw http.ResponseWriter, params *bindParams, channel *Channel) {
 	if params.qtype == queryTerminate {
-		channel.Close()
+		channel.terminate()
 	} else {
 		params.qtype.setContentType(rw)
 		setHeaders(rw, &headers)

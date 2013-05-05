@@ -5,17 +5,23 @@ package browserchannel
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 )
 
+var (
+	ErrClosed = errors.New("channel closed")
+)
+
 const (
-	maxOutgoingArrays                 = 100
-	channelReopenTimeoutDelay         = 20 * time.Second
-	backChannelExpirationTimeoutDelay = 1 * time.Minute
-	backChannelHeartbeatDelay         = 30 * time.Second
-	ackTimeoutDelay                   = 1 * time.Minute
+	maxOutgoingArrays          = 100
+	channelReopenTimeoutDelay  = 20 * time.Second
+	backChannelExpirationDelay = 1 * time.Minute
+	backChannelHeartbeatDelay  = 30 * time.Second
+	ackTimeoutDelay            = 1 * time.Minute
 )
 
 type channelState int
@@ -23,8 +29,8 @@ type channelState int
 const (
 	channelInit channelState = iota
 	channelReady
+	channelWriteClosed
 	channelClosed
-	channelDisposed
 )
 
 // Type of the data transmitted from the server to the client. The values
@@ -36,18 +42,20 @@ type outgoingArray struct {
 	elements Array
 }
 
-// All calls that are modifying the browser channel state are transformed into
-// operations and then queued on the browser channel internal operation
-// channel. Operations are executed by the browser channel goroutine. Because
-// of that, there is no synchronization logic required on a per-operation
-// basis since operations are all guarantied to be executed sequentially.
-type operation interface {
-	execute(*Channel)
+var (
+	NoopArray = Array{"noop"}
+	StopArray = Array{"stop"}
+)
+
+func marshalOutgoingArrays(arrays []*outgoingArray) (data []byte, err error) {
+	carrays := []interface{}{}
+	for _, a := range arrays {
+		carrays = append(carrays, []interface{}{a.index, a.elements})
+	}
+	data, err = json.Marshal(carrays)
+	return
 }
 
-// There is one Channel instance per connection. Each instance run in its own
-// goroutine until it is being closed either on the client-side or on the
-// server-side.
 type Channel struct {
 	// The client specific version string.
 	Version string
@@ -69,80 +77,82 @@ type Channel struct {
 	backChannelExpiration *time.Timer
 	backChannelHeartbeat  *time.Ticker
 
-	gcChan    chan<- SessionId
-	opChan    chan operation
-	mapChan   chan *Map
+	heartbeatStop chan bool
+	gcChan        chan<- SessionId
+	mapChan       chan *Map
+
+	lock sync.Mutex
 }
 
 func newChannel(clientVersion string, sid SessionId, gcChan chan<- SessionId,
-	corsInfo *crossDomainInfo) *Channel {
+	corsInfo *crossDomainInfo) (c *Channel) {
 	return &Channel{
-		Version:        clientVersion,
-		Sid:            sid,
-		state:          channelInit,
-		corsInfo:       corsInfo,
-		maps:           newMapQueue(100 /* capacity */),
-		outgoingArrays: []*outgoingArray{},
-		gcChan:         gcChan,
-		opChan:         make(chan operation, 100),
-		mapChan:        make(chan *Map, 100),
+		Version:              clientVersion,
+		Sid:                  sid,
+		state:                channelInit,
+		corsInfo:             corsInfo,
+		maps:                 newMapQueue(100 /* capacity */),
+		outgoingArrays:       []*outgoingArray{},
+		backChannelHeartbeat: time.NewTicker(backChannelHeartbeatDelay),
+		heartbeatStop:        make(chan bool, 1),
+		mapChan:              make(chan *Map, 100),
+		gcChan:               gcChan,
 	}
 }
 
 func (c *Channel) log(format string, v ...interface{}) {
-	log.Printf("%s %s", c.Sid, fmt.Sprintf(format, v...))
-}
-
-func (c *Channel) start() {
-	c.armChannelTimeout()
-
-	// The channel is marked as disposed once it has been removed from the http
-	// handler channel map. The opChan is closed immediately after the channel
-	// is marked as disposed which unblock the select statement and shuts down
-	// the channel permanently.
-	for c.state != channelDisposed {
-		select {
-		case op, ok := <-c.opChan:
-			// It is possible for operations to be queued on the channel even after it
-			// has been closed since it is still present in the handler map at this
-			// point. Operations attempted on a closed channel should simply be ignored
-			// but still serviced in order to avoid to block the operation channel.
-			// This has to be done on a per-operation basis since some operations might
-			// require some cleanup to be performed.
-			if ok {
-				op.execute(c)
-			}
-		case <-timerChan(c.ackTimeout):
-			c.log("ack timeout")
-			c.clearBackChannel(false /* permanent */)
-		case <-timerChan(c.channelTimeout):
-			c.log("channel timeout")
-			c.closeInternal()
-		case <-timerChan(c.backChannelExpiration):
-			c.log("back channel timeout")
-			c.clearBackChannel(false /* permanent */)
-		case <-tickerChan(c.backChannelHeartbeat):
-			c.log("back channel heartbeat")
-			c.queueArray(Array{"noop"})
-			c.flush()
-		}
-	}
-
-	c.log("shutted down")
+	log.Printf("%s: %s", c.Sid, fmt.Sprintf(format, v...))
 }
 
 // Sends an array on the channel.
-func (c *Channel) SendArray(array Array) {
-	c.opChan <- &sendArrayOp{array}
-}
+func (c *Channel) SendArray(array Array) (err error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
-type sendArrayOp struct {
-	array Array
-}
+	if c.state != channelReady {
+		err = ErrClosed
+		return err
+	}
 
-func (op *sendArrayOp) execute(c *Channel) {
-	c.queueArray(op.array)
+	c.queueArray(array)
 	c.flush()
+	return
+}
+
+func (c *Channel) queueArray(a Array) {
+	c.lastArrayId++
+	outgoingArray := &outgoingArray{c.lastArrayId, a}
+	c.outgoingArrays = append(c.outgoingArrays, outgoingArray)
+}
+
+func (c *Channel) flush() {
+	numUnsentArrays := c.lastArrayId - c.lastSentArrayId
+
+	if c.backChannel == nil || numUnsentArrays == 0 {
+		return
+	}
+
+	next := len(c.outgoingArrays) - numUnsentArrays
+	data, _ := marshalOutgoingArrays(c.outgoingArrays[next:])
+	c.backChannel.send(data)
+	c.lastSentArrayId = c.lastArrayId
+	c.resetAckTimeout()
+
+	// If the channel is in the write closed state, i.e. was closed from the
+	// server side, then permanently shutdown the channel. The client won't
+	// send acknowledgments once the stop signal has been sent.
+	if c.state == channelWriteClosed {
+		c.terminateInternal()
+		return
+	}
+
+	// If the number of buffered outgoing arrays is greater than a given
+	// threshold, force a back channel change to get acknowledgments so
+	// we can free some of them later.
+	if !c.backChannel.isReusable() || len(c.outgoingArrays) > 100 {
+		c.log("discarding back channel")
+		c.clearBackChannel(false /* permanent */)
+	}
 }
 
 // Reads a map from the client. The call Will block until the there's a map
@@ -152,74 +162,69 @@ func (c *Channel) ReadMap() (m *Map, ok bool) {
 	return
 }
 
-// Closes the channel. After a channel has been closed, read calls will
-// return immediately and arrays sent on the client will be dropped.
+// Close the channel from the server side. Outgoing arrays will be delivered to
+// the client before shutting down the channel permanently. SendArray calls will
+// return an error after the channel has been closed.
 func (c *Channel) Close() {
-	c.opChan <- new(closeOp)
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.state = channelWriteClosed
+	c.queueArray(StopArray)
+	c.flush()
+	close(c.mapChan)
 }
 
-type closeOp int
+// Close the channel after a query terminate was received from the client.
+// Intended to be called from the channel handler.
+func (c *Channel) terminate() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
-func (op *closeOp) execute(c *Channel) {
-	c.closeInternal()
+	c.terminateInternal()
 }
 
-func (c *Channel) closeInternal() {
-	// The channel could have been closed due to a timeout right
-	// before someone called the Close method on it.
-	if c.state == channelClosed {
-		return
-	}
-
+func (c *Channel) terminateInternal() {
 	c.clearBackChannel(true /* permanent */)
 	c.state = channelClosed
-	close(c.mapChan)
 	c.gcChan <- c.Sid
-}
 
-func (c *Channel) dispose() {
-	c.state = channelDisposed
-	close(c.opChan)
+	if c.state == channelInit || c.state == channelReady {
+		close(c.mapChan)
+	}
 }
 
 func (c *Channel) getState() []int {
-	op := &getStateOp{make(chan []int)}
-	c.opChan <- op
-	return <-op.c
-}
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
-type getStateOp struct {
-	c chan []int
-}
-
-func (op *getStateOp) execute(c *Channel) {
 	outstanding := 0
 	if len(c.outgoingArrays) > 0 {
 		outstanding = 15
 	}
+
 	backChannel := 0
 	if c.backChannel != nil {
 		backChannel = 1
 	}
-	op.c <- []int{backChannel, c.lastSentArrayId, outstanding}
+
+	return []int{backChannel, c.lastSentArrayId, outstanding}
 }
 
 func (c *Channel) receiveMaps(offset int, maps []Map) {
-	c.opChan <- &receiveMapsOp{offset, maps}
-}
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
-type receiveMapsOp struct {
-	offset int
-	maps   []Map
-}
+	if len(maps) == 0 {
+		return
+	}
 
-func (op *receiveMapsOp) execute(c *Channel) {
 	if c.state == channelReady {
-		c.log("receive %v", op.maps)
-		c.maps.enqueue(op.offset, op.maps)
+		c.log("receive %v", maps)
+		c.maps.enqueue(offset, maps)
 		c.dequeueMaps()
 	} else {
-		c.log("drop %v; channel isn't ready", op.maps)
+		c.log("drop %v; channel isn't ready", maps)
 	}
 }
 
@@ -233,24 +238,13 @@ func (c *Channel) dequeueMaps() {
 	}
 }
 
-func (c *Channel) queueArray(a Array) {
-	c.lastArrayId++
-	outgoingArray := &outgoingArray{c.lastArrayId, a}
-	c.outgoingArrays = append(c.outgoingArrays, outgoingArray)
-}
+func (c *Channel) acknowledgeArrays(aid int) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
-func (c *Channel) acknowledge(aid int) {
-	c.opChan <- &acknowledgeOp{aid}
-}
+	c.log("acknowledge %d", aid)
 
-type acknowledgeOp struct {
-	aid int
-}
-
-func (op *acknowledgeOp) execute(c *Channel) {
-	c.log("acknowledge %d", op.aid)
-
-	for len(c.outgoingArrays) > 0 && c.outgoingArrays[0].index <= op.aid {
+	for len(c.outgoingArrays) > 0 && c.outgoingArrays[0].index <= aid {
 		c.outgoingArrays = c.outgoingArrays[1:]
 	}
 
@@ -263,27 +257,22 @@ func (op *acknowledgeOp) execute(c *Channel) {
 	c.clearAckTimeout()
 }
 
+// Sets or replaces the back channel.
 func (c *Channel) setBackChannel(bc backChannel) {
-	c.opChan <- &setBackChannelOp{bc}
-}
-
-type setBackChannelOp struct {
-	bChannel backChannel
-}
-
-func (op *setBackChannelOp) execute(c *Channel) {
-	c.log("set back channel [chunked:%t]", op.bChannel.isChunked())
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	if c.state == channelClosed {
-		// Make sure to discard the back channel otherwise the calling goroutine
-		// will end up waiting forever on its completion.
-		op.bChannel.discard()
-	} else if c.state == channelInit {
+		bc.discard()
+		return
+	}
+
+	c.log("set back channel [rid:%s,chunked:%t]", bc.getRequestId(), bc.isChunked())
+
+	if c.state == channelInit {
 		hostPrefix := getHostPrefix(c.corsInfo)
 		c.queueArray(Array{"c", c.Sid.String(), hostPrefix, 8})
 		c.state = channelReady
-	} else {
-		c.queueArray(Array{"noop"})
 	}
 
 	if c.backChannel != nil {
@@ -291,9 +280,9 @@ func (op *setBackChannelOp) execute(c *Channel) {
 		c.clearBackChannel(false /* permanent */)
 	}
 
+	c.backChannel = bc
 	c.clearChannelTimeout()
 	c.armBackChannelTimeouts()
-	c.backChannel = op.bChannel
 
 	// Special care is needed to account for the fact that the old back
 	// channel may have died uncleanly. To make sure that all arrays are
@@ -304,34 +293,6 @@ func (op *setBackChannelOp) execute(c *Channel) {
 	}
 
 	c.flush()
-}
-
-func (c *Channel) flush() {
-	numUnsentArrays := c.lastArrayId - c.lastSentArrayId
-
-	if c.backChannel == nil || numUnsentArrays < 1 {
-		return
-	}
-
-	next := len(c.outgoingArrays) - numUnsentArrays
-	data, _ := marshalOutgoingArrays(c.outgoingArrays[next:])
-	c.backChannel.send(data)
-	c.lastSentArrayId = c.lastArrayId
-	c.resetAckTimeout()
-
-	// If the number of buffered outgoing arrays is greater than a given
-	// threshold, force a back channel change to get acknowledgments so
-	// we can free some of them later.
-	if !c.canReuseBackChannel() {
-		c.log("discarding back channel")
-		c.clearBackChannel(false /* permanent */)
-	}
-}
-
-func (c *Channel) canReuseBackChannel() bool {
-	return c.backChannel.isReusable() &&
-		len(c.outgoingArrays) < 100 &&
-		c.state != channelClosed
 }
 
 // Clear back channel and starts the channel session timeout if the permanent
@@ -365,35 +326,56 @@ func (c *Channel) clearAckTimeout() {
 
 func (c *Channel) resetAckTimeout() {
 	c.clearAckTimeout()
-	c.ackTimeout = time.NewTimer(ackTimeoutDelay)
+	c.ackTimeout = time.AfterFunc(ackTimeoutDelay, func() {
+		c.lock.Lock()
+		defer c.lock.Unlock()
+
+		c.log("ack timeout")
+		c.clearBackChannel(false /* permanent */)
+	})
 }
 
 func (c *Channel) armBackChannelTimeouts() {
-	c.backChannelExpiration = time.NewTimer(backChannelExpirationTimeoutDelay)
-	c.backChannelHeartbeat = time.NewTicker(backChannelHeartbeatDelay)
+	c.backChannelExpiration = time.AfterFunc(backChannelExpirationDelay, func() {
+		c.lock.Lock()
+		defer c.lock.Unlock()
+
+		c.log("back channel expired")
+		c.clearBackChannel(false /* permanent */)
+	})
+
+	go heartbeat(c, c.backChannelHeartbeat.C, c.heartbeatStop)
+}
+
+func heartbeat(c *Channel, ticks <-chan time.Time, stops <-chan bool) {
+	c.log("start heartbeats")
+
+	for {
+		select {
+		case <-ticks:
+			c.log("heartbeat")
+			c.SendArray(NoopArray)
+		case <-stops:
+			c.log("stop heartbeats")
+			return
+		}
+	}
 }
 
 func (c *Channel) clearBackChannelTimeouts() {
 	c.backChannelExpiration.Stop()
 	c.backChannelExpiration = nil
-	c.backChannelHeartbeat.Stop()
-	c.backChannelHeartbeat = nil
+	c.heartbeatStop <- true
 }
 
 func (c *Channel) armChannelTimeout() {
-	c.channelTimeout = time.NewTimer(channelReopenTimeoutDelay)
+	c.channelTimeout = time.AfterFunc(channelReopenTimeoutDelay, func() {
+		c.log("channel timeout")
+		c.terminate()
+	})
 }
 
 func (c *Channel) clearChannelTimeout() {
 	c.channelTimeout.Stop()
 	c.channelTimeout = nil
-}
-
-func marshalOutgoingArrays(arrays []*outgoingArray) (data []byte, err error) {
-	carrays := []interface{}{}
-	for _, a := range arrays {
-		carrays = append(carrays, []interface{}{a.index, a.elements})
-	}
-	data, err = json.Marshal(carrays)
-	return
 }
