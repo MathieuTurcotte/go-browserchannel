@@ -43,8 +43,8 @@ type outgoingArray struct {
 }
 
 var (
-	NoopArray = Array{"noop"}
-	StopArray = Array{"stop"}
+	noopArray = Array{"noop"}
+	stopArray = Array{"stop"}
 )
 
 func marshalOutgoingArrays(arrays []*outgoingArray) (data []byte, err error) {
@@ -170,7 +170,7 @@ func (c *Channel) Close() {
 	defer c.lock.Unlock()
 
 	c.state = channelWriteClosed
-	c.queueArray(StopArray)
+	c.queueArray(stopArray)
 	c.flush()
 	close(c.mapChan)
 }
@@ -354,7 +354,7 @@ func heartbeat(c *Channel, ticks <-chan time.Time, stops <-chan bool) {
 		select {
 		case <-ticks:
 			c.log("heartbeat")
-			c.SendArray(NoopArray)
+			c.SendArray(noopArray)
 		case <-stops:
 			c.log("stop heartbeats")
 			return
