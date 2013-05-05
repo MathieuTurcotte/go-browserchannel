@@ -104,7 +104,8 @@ func (c *Channel) log(format string, v ...interface{}) {
 	log.Printf("%s: %s", c.Sid, fmt.Sprintf(format, v...))
 }
 
-// Sends an array on the channel.
+// Sends an array on the channel. Will return an error if the channel isn't
+// ready, i.e. initializing or closed.
 func (c *Channel) SendArray(array Array) (err error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
