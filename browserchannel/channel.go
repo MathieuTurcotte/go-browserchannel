@@ -112,7 +112,7 @@ func (c *Channel) SendArray(array Array) (err error) {
 
 	if c.state != channelReady {
 		err = ErrClosed
-		return err
+		return
 	}
 
 	c.queueArray(array)
