@@ -183,14 +183,14 @@ func (c *Channel) terminate() {
 }
 
 func (c *Channel) terminateInternal() {
+	if c.state == channelInit || c.state == channelReady {
+		close(c.mapChan)
+	}
+
 	c.clearBackChannel(true /* permanent */)
 	c.heartbeatStop <- true
 	c.state = channelClosed
 	c.gcChan <- c.Sid
-
-	if c.state == channelInit || c.state == channelReady {
-		close(c.mapChan)
-	}
 }
 
 func (c *Channel) getState() []int {
