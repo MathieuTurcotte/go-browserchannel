@@ -156,8 +156,8 @@ func (c *Channel) flush() {
 	}
 }
 
-// Reads a map from the client. The call Will block until the there's a map
-// ready or the channel is closed in which case the ok argument will be false.
+// Reads a map from the client. The call will block until there is a map
+// ready or the channel is closed in which case the ok will be false.
 func (c *Channel) ReadMap() (m *Map, ok bool) {
 	m, ok = <-c.mapChan
 	return
