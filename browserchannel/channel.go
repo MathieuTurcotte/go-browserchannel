@@ -264,7 +264,7 @@ func (c *Channel) setBackChannel(bc backChannel) {
 		return
 	}
 
-	c.log("set back channel [rid:%s,chunked:%t]", bc.getRequestId(), bc.isChunked())
+	c.log("set back channel [rid:%s, chunked:%t]", bc.getRequestId(), bc.isChunked())
 
 	if c.state == channelInit {
 		go heartbeat(c, c.backChannelHeartbeat.C, c.heartbeatStop)
@@ -274,7 +274,7 @@ func (c *Channel) setBackChannel(bc backChannel) {
 	}
 
 	if c.backChannel != nil {
-		c.log("dropping back channel to set new one")
+		c.log("dropping old back channel")
 		c.clearBackChannel(false /* permanent */)
 	}
 
