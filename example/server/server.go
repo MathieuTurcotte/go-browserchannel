@@ -12,7 +12,8 @@ import (
 	"sync"
 )
 
-var public = flag.String("public_directory", "", "path to public directory")
+var publicDir = flag.String("public_directory", "", "path to public directory")
+var closureDir = flag.String("closure_directory", "", "path to closure directory")
 var port = flag.String("port", "8080", "the port to listen on")
 var hostname = flag.String("hostname", "hpenvy.local", "the server hostname")
 
@@ -60,7 +61,8 @@ func main() {
 	handler.SetCrossDomainPrefix(*hostname+":"+*port, []string{"bc0", "bc1"})
 
 	http.Handle("/channel/", handler)
-	http.Handle("/", http.FileServer(http.Dir(*public)))
+	http.Handle("/closure/", http.StripPrefix("/closure/", http.FileServer(http.Dir(*closureDir))))
+	http.Handle("/", http.FileServer(http.Dir(*publicDir)))
 
 	err := http.ListenAndServe(":"+*port, nil)
 	if err != nil {
