@@ -97,7 +97,7 @@ func parseBindParams(req *http.Request, values url.Values) (params *bindParams, 
 	qtype := parseQueryType(req.Form.Get("TYPE"))
 	domain := req.Form.Get("DOMAIN")
 	rid := req.Form.Get("zx")
-	ci := req.Form.Get("CI") == "1"
+	chunked := req.Form.Get("CI") == "0"
 	sid, err := parseSessionId(req.Form.Get("SID"))
 	if err != nil {
 		return
@@ -106,7 +106,7 @@ func parseBindParams(req *http.Request, values url.Values) (params *bindParams, 
 	if err != nil {
 		return
 	}
-	params = &bindParams{cver, sid, qtype, domain, rid, aid, ci, values, req.Method}
+	params = &bindParams{cver, sid, qtype, domain, rid, aid, chunked, values, req.Method}
 	return
 }
 
@@ -284,6 +284,13 @@ func (h *Handler) handleTestRequest(rw http.ResponseWriter, params *testParams) 
 		} else {
 			io.WriteString(rw, "11111")
 		}
+
+		// It is important to flush the response at this point otherwise the
+		// client won't receive the intermediate result and will disable the
+		// chunking support by setting the CI parameter to 1 which tells the
+		// server to close bind requests immediately. For reference, see
+		// goog.net.BrowserTestChannel#onRequestComplete.
+		rw.(http.Flusher).Flush()
 
 		time.Sleep(2 * time.Second)
 
