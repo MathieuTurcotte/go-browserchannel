@@ -53,11 +53,11 @@ func TestParseIncomingMaps(t *testing.T) {
 		{"count=2&ofs=10&req0_key1=foo&req1_key2=bar",
 			10, []Map{{"key1": "foo"}, {"key2": "bar"}}, nil},
 		// Request body with invalid request id (req2 should be req1).
-		{"count=2&ofs=10&req0_key=val&req3_key=val", 0, nil, ErrBadMap},
+		{"count=2&ofs=10&req0_key=val&req3_key=val", 0, nil, errBadMap},
 		// Request body with an invalid offset value.
-		{"count=1&ofs=abc&req0_key=val", 0, nil, ErrBadMap},
+		{"count=1&ofs=abc&req0_key=val", 0, nil, errBadMap},
 		// Request body with an invalid key id.
-		{"count=1&ofs=abc&reqABC_key=val", 0, nil, ErrBadMap},
+		{"count=1&ofs=abc&reqABC_key=val", 0, nil, errBadMap},
 	}
 
 	for i, c := range cases {
