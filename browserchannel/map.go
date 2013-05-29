@@ -20,6 +20,8 @@ func (q *mapQueue) enqueue(offset int, maps []Map) {
 	if offset < q.next {
 		return
 	}
+	// TODO: This should be handled as an error since dropping maps silently
+	// will result in a mismatch between the offset and the next index.
 	if (len(q.maps) + len(maps)) > q.capacity {
 		return
 	}
