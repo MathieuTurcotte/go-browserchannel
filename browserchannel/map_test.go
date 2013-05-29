@@ -25,13 +25,13 @@ func verifyDequeue(t *testing.T, queue *mapQueue, maps []Map) {
 	}
 }
 
-func verifyNoDequeue(t *testing.T, queue *mapQueue) {
+func verifyDequeueNothing(t *testing.T, queue *mapQueue) {
 	if m, ok := queue.dequeue(); ok {
 		t.Fatalf("expected to queue to be empty but got %v", m)
 	}
 }
 
-func TestQueueInOrder(t *testing.T) {
+func TestEnqueueInOrder(t *testing.T) {
 	maps := []Map{
 		makeTestMap("0"),
 		makeTestMap("1"),
@@ -46,10 +46,10 @@ func TestQueueInOrder(t *testing.T) {
 	queue.enqueue(2, maps[2:4])
 	verifyDequeue(t, queue, maps[2:4])
 
-	verifyNoDequeue(t, queue)
+	verifyDequeueNothing(t, queue)
 }
 
-func TestQueueOutOfOrder(t *testing.T) {
+func TestEnqueueOutOfOrder(t *testing.T) {
 	maps := []Map{
 		makeTestMap("0"),
 		makeTestMap("1"),
@@ -59,15 +59,15 @@ func TestQueueOutOfOrder(t *testing.T) {
 	queue := newMapQueue(100)
 
 	queue.enqueue(2, maps[2:4])
-	verifyNoDequeue(t, queue)
+	verifyDequeueNothing(t, queue)
 
 	queue.enqueue(0, maps[0:2])
 	verifyDequeue(t, queue, maps[0:4])
 
-	verifyNoDequeue(t, queue)
+	verifyDequeueNothing(t, queue)
 }
 
-func TestQueueDuplicate(t *testing.T) {
+func TestEnqueueDuplicate(t *testing.T) {
 	maps := []Map{
 		makeTestMap("0"),
 		makeTestMap("1")}
@@ -78,5 +78,5 @@ func TestQueueDuplicate(t *testing.T) {
 	verifyDequeue(t, queue, maps[0:2])
 
 	queue.enqueue(0, maps[0:2])
-	verifyNoDequeue(t, queue)
+	verifyDequeueNothing(t, queue)
 }
