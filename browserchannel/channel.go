@@ -211,12 +211,12 @@ func (c *Channel) getState() []int {
 }
 
 func (c *Channel) receiveMaps(offset int, maps []Map) (err error) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
 	if len(maps) == 0 {
 		return
 	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	if c.state == channelReady {
 		c.log("receive %v", maps)
