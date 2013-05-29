@@ -80,3 +80,24 @@ func TestEnqueueDuplicate(t *testing.T) {
 	queue.enqueue(0, maps[0:2])
 	verifyDequeueNothing(t, queue)
 }
+
+func TestEnqueueCapacity(t *testing.T) {
+	maps := []Map{
+		makeTestMap("0"),
+		makeTestMap("1"),
+		makeTestMap("2")}
+
+	queue := newMapQueue(3)
+
+	// Insert one map in the queue.
+	err := queue.enqueue(0, maps[0:1])
+	if err != nil {
+		t.Fatalf("capacity exceeded after one enqueue")
+	}
+
+	// Insert three more maps in queue which should exceed the map capacity.
+	err = queue.enqueue(1, maps)
+	if err != errCapacityExceeded {
+		t.Fatalf(" expected a capacity exceeded error but got nothing")
+	}
+}

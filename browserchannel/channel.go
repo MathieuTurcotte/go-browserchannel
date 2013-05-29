@@ -210,7 +210,7 @@ func (c *Channel) getState() []int {
 	return []int{backChannel, c.lastSentArrayId, outstanding}
 }
 
-func (c *Channel) receiveMaps(offset int, maps []Map) {
+func (c *Channel) receiveMaps(offset int, maps []Map) (err error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -220,11 +220,13 @@ func (c *Channel) receiveMaps(offset int, maps []Map) {
 
 	if c.state == channelReady {
 		c.log("receive %v", maps)
-		c.maps.enqueue(offset, maps)
+		err = c.maps.enqueue(offset, maps)
 		c.dequeueMaps()
 	} else {
 		c.log("drop %v; channel isn't ready", maps)
 	}
+
+	return
 }
 
 func (c *Channel) dequeueMaps() {

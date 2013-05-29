@@ -3,6 +3,12 @@
 
 package browserchannel
 
+import (
+	"errors"
+)
+
+var errCapacityExceeded = errors.New("queue capacity exceeded")
+
 // Type of the data transmitted from the client to the server.
 type Map map[string]string
 
@@ -16,18 +22,23 @@ func newMapQueue(capacity int) *mapQueue {
 	return &mapQueue{0, make(map[int]Map), capacity}
 }
 
-func (q *mapQueue) enqueue(offset int, maps []Map) {
+func (q *mapQueue) enqueue(offset int, maps []Map) (err error) {
 	if offset < q.next {
 		return
 	}
-	// TODO: This should be handled as an error since dropping maps silently
-	// will result in a mismatch between the offset and the next index.
+
+	// If the queue would exceed its capacity after the new maps are enqueued,
+	// return an error since it either signals that the server is overwhelmed
+	// or that there is a gap in the queue.
 	if (len(q.maps) + len(maps)) > q.capacity {
-		return
+		return errCapacityExceeded
 	}
+
 	for i, m := range maps {
 		q.maps[offset+i] = m
 	}
+
+	return
 }
 
 func (q *mapQueue) dequeue() (m Map, ok bool) {

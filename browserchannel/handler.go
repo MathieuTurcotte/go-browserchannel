@@ -355,7 +355,11 @@ func (h *Handler) handleBindPost(rw http.ResponseWriter, params *bindParams, cha
 		return
 	}
 
-	channel.receiveMaps(offset, maps)
+	if err := channel.receiveMaps(offset, maps); err != nil {
+		log.Printf("%s: %s\n", channel.Sid, err)
+		rw.WriteHeader(500)
+		return
+	}
 
 	if channel.state == channelInit {
 		setHeaders(rw, &headers)
