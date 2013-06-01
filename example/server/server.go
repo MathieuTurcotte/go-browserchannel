@@ -39,7 +39,7 @@ func handleChannel(channel *bc.Channel) {
 	channels.Unlock()
 
 	for {
-		m, ok := channel.ReadMap()
+		m, ok := <-channel.Maps()
 		if !ok {
 			log.Printf("%s: returned with no data, closing\n", channel.Sid)
 

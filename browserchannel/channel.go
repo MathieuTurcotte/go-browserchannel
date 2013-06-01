@@ -153,11 +153,11 @@ func (c *Channel) flush() {
 	}
 }
 
-// Reads a map from the client. The call will block until there is a map
-// ready or the channel is closed in which case the ok will be false.
-func (c *Channel) ReadMap() (m *Map, ok bool) {
-	m, ok = <-c.mapChan
-	return
+// Returns the map channel on which maps received from the client will be sent.
+// The map channel will be closed when the browser channel to this client is
+// closed.
+func (c *Channel) Maps() <-chan *Map {
+	return c.mapChan
 }
 
 // Close the channel from the server side. Outgoing arrays will be delivered to
