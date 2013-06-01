@@ -9,15 +9,14 @@ page.open('http://hpenvy.local:8080/', function(status) {
 
 page.onCallback = function(data) {
     console.log(JSON.stringify(data));
-    page.close();
-    phantom.exit(data.success === true ? 0 : 1);
+
+    // Calling phantom.exit within the callback causes a crash.
+    var success = data.success === true;
+    setTimeout(function() {
+        phantom.exit(success ? 0 : 1);
+    }, 1);
 };
 
 page.onConsoleMessage = function(msg, lineNum, sourceId) {
     system.stdout.write(msg);
 };
-
-setTimeout(function() {
-    console.log('timeout');
-    phantom.exit(1);
-}, 10 * 10000);

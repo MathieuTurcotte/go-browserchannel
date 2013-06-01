@@ -1,56 +1,12 @@
 <html>
     <head>
-        <title>Go Browser Channel Test</title>
-        <script src="closure/goog/base.js"></script>
-        <script>
-        goog.require('goog.net.BrowserChannel');
-        goog.require('goog.net.BrowserChannel.Handler');
-        goog.require('goog.net.ChannelDebug');
-        goog.require('goog.debug.Console');
-        </script>
+        <script src="closure-library/closure/goog/base.js"></script>
+        <script src="deps.js"></script>
+        <script src="index.js"></script>
     </head>
 <body>
-    <h1>Go Browser Channel Test</h1>
-
     <script>
-    goog.debug.Console.autoInstall();
-    goog.debug.Console.instance.setCapturing(true);
-    </script>
-
-    <script>
-    Handler = function() {
-        goog.base(this);
-    };
-    goog.inherits(Handler, goog.net.BrowserChannel.Handler);
-
-    Handler.prototype.logger = goog.debug.Logger.getLogger('Handler');
-
-    Handler.prototype.channelOpened = function(channel) {
-        this.logger.info('channelOpened');
-        channel.sendMap({data: 'ping'});
-    };
-
-    Handler.prototype.channelHandleArray = function(channel, array) {
-        this.logger.info('channelHandleArray: ' + goog.debug.expose(array));
-        window.callPhantom({success: true});
-    };
-
-    Handler.prototype.channelError = function(browserChannel, error) {
-        this.logger.info('channelError: ' + error);
-    };
-
-    Handler.prototype.badMapError = function(browserChannel, map) {
-        this.logger.info('badMapError: ' + goog.debug.expose(map));
-    };
-
-    var clientVersion = "cv1"
-    var handler = new Handler();
-    var channel = new goog.net.BrowserChannel(clientVersion);
-    channel.setChannelDebug(new goog.net.ChannelDebug());
-    channel.setSupportsCrossDomainXhrs(true);
-    channel.setAllowHostPrefix(true);
-    channel.setHandler(handler);
-    channel.connect('channel/test', 'channel/bind');
+        tests.start();
     </script>
 </body>
 </html>
