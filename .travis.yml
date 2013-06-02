@@ -1,11 +1,17 @@
 language: go
 
+addons:
+    hosts:
+        - hpenvy.local
+        - bc0.hpenvy.local
+        - bc1.hpenvy.local
+        - bc2.hpenvy.local
+
 before_script:
-    - start-stop-daemon --start --quiet --background --pidfile /tmp/custom_xvfb_99.pid --make-pidfile --exec $(which go) --
-        run src/github.com/MathieuTurcotte/go-browserchannel/test/server/server.go
-            --public_directory=src/github.com/MathieuTurcotte/go-browserchannel/test/client
-            --closure_directory=src/github.com/MathieuTurcotte/go-browserchannel/closure-library
-            --port=8080
+    - go run src/github.com/MathieuTurcotte/go-browserchannel/test/server/server.go
+        --public_directory=src/github.com/MathieuTurcotte/go-browserchannel/test/client
+        --closure_directory=src/github.com/MathieuTurcotte/go-browserchannel/closure-library
+        --port=8080 &
 
 script:
     - go test -v github.com/MathieuTurcotte/go-browserchannel/browserchannel/...
