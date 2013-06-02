@@ -16,8 +16,8 @@ var closureDir = flag.String("closure_directory", "", "path to closure directory
 var port = flag.String("port", "8080", "the port to listen on")
 var hostname = flag.String("hostname", "hpenvy.local", "the server hostname")
 
-func handleChannel(channel *bc.Channel) {
-	log.Printf("Handlechannel (%q)\n", channel.Sid)
+func testHandler1(channel *bc.Channel) {
+	log.Printf("test 1 (%q)\n", channel.Sid)
 
 	ticks := time.Tick(15 * time.Second)
 	done := time.After(5 * time.Minute)
@@ -34,6 +34,32 @@ func handleChannel(channel *bc.Channel) {
 		case <-done:
 			channel.Close()
 		}
+	}
+}
+
+func handleChannel(channel *bc.Channel) {
+	log.Printf("handleChannel: %q\n", channel.Sid)
+
+	testHandlers := map[string]bc.ChannelHandler{
+		"1": testHandler1,
+		"2": testHandler1,
+	}
+
+	select {
+	case m, ok := <-channel.Maps():
+		if ok {
+			id := (*m)["id"]
+			if handler, ok := testHandlers[id]; ok {
+				handler(channel)
+			} else {
+				log.Printf("%s: no test handler for %s\n", channel.Sid, id)
+			}
+		} else {
+			log.Printf("%s: returned with no data, closing\n", channel.Sid)
+		}
+	case <-time.After(10 * time.Second):
+		log.Printf("%s: timed out before selecting test case\n", channel.Sid)
+		channel.Close()
 	}
 }
 

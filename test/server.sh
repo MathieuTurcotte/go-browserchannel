@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Mathieu Turcotte (c) 2013
 
 set -x
 

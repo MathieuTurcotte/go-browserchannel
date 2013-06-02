@@ -63,10 +63,6 @@ def _GetJsCompilerArgs(compiler_jar_path, java_version, source_paths,
   # Add JVM flags we believe will produce the best performance.  See
   # https://groups.google.com/forum/#!topic/closure-library-discuss/7w_O9-vzlj4
 
-  # Attempt 32-bit mode if we're <= Java 1.7
-  if java_version >= 1.7:
-    args += ['-d32']
-
   # Prefer the "client" VM.
   args += ['-client']
 
