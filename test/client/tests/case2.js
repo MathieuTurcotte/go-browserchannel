@@ -6,56 +6,85 @@
 goog.provide('tests.Handler2');
 
 goog.require('goog.Timer');
-goog.require('goog.debug.Logger');
 goog.require('goog.net.BrowserChannel.Handler');
 
 
 
 /**
- * A test handler which expects the server to send arrays every 15 seconds and
- * then to close the channel.
+ * A test handler which sends messages to the server and expects acknowledgment
+ * responses from it within a given delay. The handler will fail if the server
+ * doesn't respond to a request within the expected delay. The handler will
+ * close the browser channel upon completion of the test.
  * @extends {goog.net.BrowserChannel.Handler}
  * @constructor
  */
 tests.Handler2 = function() {
     goog.base(this);
 
-    this.timer_ = new goog.Timer(tests.Handler2.TIMEOUT_DELAY);
+    /**
+     * @private {number}
+     */
+    this.numMapsSent_ = 0;
 
-    this.eventHandler_ = new goog.events.EventHandler(this);
-    this.eventHandler_.listen(this.timer_, goog.Timer.TICK, this.onTimeout_);
+    /**
+     * @private {number}
+     */
+    this.nextMapId_ = 0;
+
+    /**
+     * @private {number}
+     */
+    this.expectedMapId_ = -1;
 };
 goog.inherits(tests.Handler2, goog.net.BrowserChannel.Handler);
 
 
 /**
  * Maximum delay to wait for an array from the server. If the delay is
- * exceeded, the handler will signal a failure.
+ * exceeded, the handler will signal a failure to the phantom runner.
  * @type {number}
  * @const
  */
-tests.Handler2.TIMEOUT_DELAY = 25 * 1000;
+tests.Handler2.TIMEOUT_DELAY = 5 * 1000;
 
 
 /**
- * @private {!goog.debug.Logger}
+ * Maximum delay to wait for an array from the server. If the delay is
+ * exceeded, the handler will signal a failure to the phantom runner.
+ * @type {number}
+ * @const
  */
-tests.Handler2.prototype.logger_ =
-    goog.debug.Logger.getLogger('tests.Handler2');
+tests.Handler2.SEND_INTERVAL = 15 * 1000;
+
+
+/**
+ * @type {number}
+ * @const
+ */
+tests.Handler2.NUM_MAP_TO_SEND = 10;
 
 
 /** @override */
 tests.Handler2.prototype.channelOpened = function(channel) {
-    this.logger_.info('channelOpened');
     channel.sendMap({id: '2'});
-    this.timer_.start();
+    this.sendNextArray_(channel);
 };
 
 
 /** @override */
 tests.Handler2.prototype.channelHandleArray = function(channel, array) {
-    this.logger_.info('channelHandleArray: ' + goog.debug.expose(array));
-    this.timer_.setInterval(tests.Handler2.TIMEOUT_DELAY);
+    var id = array[0];
+
+    if (id != this.expectedMapId_) {
+        window.callPhantom({type: 'done', success: false});
+        channel.disconnect();
+    } else if (this.numMapsSent_ == tests.Handler2.NUM_MAP_TO_SEND) {
+        channel.disconnect();
+    } else {
+        this.expectedMapId_ = -1;
+        goog.Timer.callOnce(goog.partial(this.sendNextArray_, channel),
+            tests.Handler2.SEND_INTERVAL, this);
+    }
 };
 
 
@@ -65,7 +94,6 @@ tests.Handler2.prototype.channelError = function(channel, error) {
         case goog.net.BrowserChannel.Error.STOP:
             break;
         default:
-            this.logger_.info('channelError: ' + error);
             window.callPhantom({type: 'done', success: false});
     }
 };
@@ -73,15 +101,24 @@ tests.Handler2.prototype.channelError = function(channel, error) {
 
 /** @override */
 tests.Handler2.prototype.channelClosed = function(channel) {
-    this.logger_.info('channelClosed');
     window.callPhantom({type: 'done', success: true});
 };
 
 
 /** @override */
 tests.Handler2.prototype.badMapError = function(browserChannel, map) {
-    this.logger_.info('badMapError: ' + goog.debug.expose(map));
     window.callPhantom({type: 'done', success: false});
+};
+
+
+/**
+ * @param {!goog.net.BrowserChannel} channel The browser channel.
+ * @private
+ */
+tests.Handler2.prototype.sendNextArray_ = function(channel) {
+    this.numMapsSent_++;
+    this.expectedMapId_ = this.nextMapId_;
+    channel.sendMap({payload: this.nextMapId_++});
 };
 
 
@@ -91,6 +128,5 @@ tests.Handler2.prototype.badMapError = function(browserChannel, map) {
  * @private
  */
 tests.Handler2.prototype.onTimeout_ = function() {
-    this.logger_.info('timeout');
     window.callPhantom({type: 'done', success: false});
 };
