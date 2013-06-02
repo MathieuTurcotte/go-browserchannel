@@ -7,12 +7,20 @@ addons:
         - bc1.hpenvy.local
         - bc2.hpenvy.local
 
+# phantomjs 1.9 is required for the system.stdout.write call.
+# TODO: Remove once travis-ci updates to phantomjs 1.9.
+before_install:
+  - wget https://phantomjs.googlecode.com/files/phantomjs-1.9.0-linux-x86_64.tar.bz2
+  - tar -xf phantomjs-1.9.0-linux-x86_64.tar.bz2
+  - sudo mv phantomjs-1.9.0-linux-i686/bin/phantomjs /usr/local/phantomjs
+
 before_script:
     - go run src/github.com/MathieuTurcotte/go-browserchannel/test/server/server.go
         --public_directory=src/github.com/MathieuTurcotte/go-browserchannel/test/client
         --closure_directory=src/github.com/MathieuTurcotte/go-browserchannel/closure-library
-        --port=8080 &
+        --port=8080 &> server.log &
 
 script:
     - go test -v github.com/MathieuTurcotte/go-browserchannel/browserchannel/...
     - phantomjs src/github.com/MathieuTurcotte/go-browserchannel/test/runner.js
+
