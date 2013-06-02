@@ -27,7 +27,7 @@ func broadcast(m bc.Map) {
 	defer channels.RUnlock()
 
 	for _, c := range channels.m {
-		c.SendArray([]interface{}{fmt.Sprintf("%#v", m)})
+		c.SendArray(bc.Array{fmt.Sprintf("%#v", m)})
 	}
 }
 

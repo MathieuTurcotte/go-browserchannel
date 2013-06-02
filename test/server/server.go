@@ -40,7 +40,7 @@ func handleTest1(channel *bc.Channel) {
 				return
 			}
 		case t := <-ticks:
-			channel.SendArray([]interface{}{t})
+			channel.SendArray(bc.Array{t})
 		case <-done:
 			channel.Close()
 		}
