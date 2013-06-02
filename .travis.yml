@@ -1,7 +1,7 @@
 language: go
 
 before_script:
-    - start-stop-daemon --start --quiet --background --pidfile /tmp/custom_xvfb_99.pid --make-pidfile --exec /usr/bin/go --
+    - start-stop-daemon --start --quiet --background --pidfile /tmp/custom_xvfb_99.pid --make-pidfile --exec $(which go) --
         run src/github.com/MathieuTurcotte/go-browserchannel/test/server/server.go
             --public_directory=src/github.com/MathieuTurcotte/go-browserchannel/test/client
             --closure_directory=src/github.com/MathieuTurcotte/go-browserchannel/closure-library
