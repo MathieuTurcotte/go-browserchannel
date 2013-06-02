@@ -1,11 +1,11 @@
 language: go
 
 before_script:
-    - start-stop-daemon --start --quiet --pidfile /tmp/custom_xvfb_99.pid --make-pidfile
-        go run src/github.com/MathieuTurcotte/go-browserchannel/test/server/server.go
+    - start-stop-daemon --start --quiet --background --pidfile /tmp/custom_xvfb_99.pid --make-pidfile --exec go --
+        run src/github.com/MathieuTurcotte/go-browserchannel/test/server/server.go
             --public_directory=src/github.com/MathieuTurcotte/go-browserchannel/test/client
             --closure_directory=src/github.com/MathieuTurcotte/go-browserchannel/closure-library
-            --port=8080 &
+            --port=8080
 
 script:
     - go test -v github.com/MathieuTurcotte/go-browserchannel/browserchannel/...
