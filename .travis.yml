@@ -1,9 +1,9 @@
 language: go
 
 before_script:
-    go run src/github.com/MathieuTurcotte/go-browserchannel/test/server/server.go \
-        --public_directory=src/github.com/MathieuTurcotte/go-browserchannel/test/client \
-        --closure_directory=src/github.com/MathieuTurcotte/go-browserchannel/closure-library \
+    - go run src/github.com/MathieuTurcotte/go-browserchannel/test/server/server.go
+        --public_directory=src/github.com/MathieuTurcotte/go-browserchannel/test/client
+        --closure_directory=src/github.com/MathieuTurcotte/go-browserchannel/closure-library
         --port=8080 &
 
 script:
