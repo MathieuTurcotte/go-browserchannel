@@ -12,7 +12,6 @@ addons:
 before_install:
   - wget https://phantomjs.googlecode.com/files/phantomjs-1.9.0-linux-x86_64.tar.bz2
   - tar -xf phantomjs-1.9.0-linux-x86_64.tar.bz2
-  - sudo mv phantomjs-1.9.0-linux-x86_64/bin/phantomjs /usr/local/phantomjs
 
 before_script:
     - go run src/github.com/MathieuTurcotte/go-browserchannel/test/server/server.go
@@ -22,5 +21,5 @@ before_script:
 
 script:
     - go test -v github.com/MathieuTurcotte/go-browserchannel/browserchannel/...
-    - phantomjs src/github.com/MathieuTurcotte/go-browserchannel/test/runner.js
+    - phantomjs-1.9.0-linux-x86_64/bin/phantomjs src/github.com/MathieuTurcotte/go-browserchannel/test/runner.js
 
