@@ -20,7 +20,7 @@ func handleTest2(channel *bc.Channel) {
 	log.Printf("handleTest2 (%q)\n", channel.Sid)
 
 	for m := range channel.Maps() {
-		if payload, ok := (*m)["payload"]; ok {
+		if payload, ok := m["payload"]; ok {
 			channel.SendArray(bc.Array{payload})
 		}
 	}
@@ -58,7 +58,7 @@ func handleChannel(channel *bc.Channel) {
 	select {
 	case m, ok := <-channel.Maps():
 		if ok {
-			id := (*m)["id"]
+			id := m["id"]
 			if handler, ok := testHandlers[id]; ok {
 				handler(channel)
 			} else {

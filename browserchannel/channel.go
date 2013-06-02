@@ -77,7 +77,7 @@ type Channel struct {
 
 	heartbeatStop chan bool
 	gcChan        chan<- SessionId
-	mapChan       chan *Map
+	mapChan       chan Map
 
 	lock sync.Mutex
 }
@@ -93,7 +93,7 @@ func newChannel(clientVersion string, sid SessionId, gcChan chan<- SessionId,
 		outgoingArrays:       []*outgoingArray{},
 		backChannelHeartbeat: time.NewTicker(backChannelHeartbeatDelay),
 		heartbeatStop:        make(chan bool, 1),
-		mapChan:              make(chan *Map, 100),
+		mapChan:              make(chan Map, 100),
 		gcChan:               gcChan,
 	}
 }
@@ -156,7 +156,7 @@ func (c *Channel) flush() {
 // Returns the map channel on which maps received from the client will be sent.
 // The map channel will be closed when the browser channel to this client is
 // closed.
-func (c *Channel) Maps() <-chan *Map {
+func (c *Channel) Maps() <-chan Map {
 	return c.mapChan
 }
 
@@ -232,7 +232,7 @@ func (c *Channel) receiveMaps(offset int, maps []Map) (err error) {
 func (c *Channel) dequeueMaps() {
 	for {
 		if m, ok := c.maps.dequeue(); ok {
-			c.mapChan <- &m
+			c.mapChan <- m
 		} else {
 			break
 		}

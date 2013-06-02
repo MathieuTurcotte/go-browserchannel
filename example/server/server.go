@@ -22,12 +22,12 @@ var channels = struct {
 	m map[bc.SessionId]*bc.Channel
 }{m: make(map[bc.SessionId]*bc.Channel)}
 
-func broadcast(m *bc.Map) {
+func broadcast(m bc.Map) {
 	channels.RLock()
 	defer channels.RUnlock()
 
 	for _, c := range channels.m {
-		c.SendArray([]interface{}{fmt.Sprintf("%#v", *m)})
+		c.SendArray([]interface{}{fmt.Sprintf("%#v", m)})
 	}
 }
 
@@ -49,7 +49,7 @@ func handleChannel(channel *bc.Channel) {
 			break
 		}
 
-		log.Printf("%s: map: %#v\n", channel.Sid, *m)
+		log.Printf("%s: map: %#v\n", channel.Sid, m)
 		broadcast(m)
 	}
 }
