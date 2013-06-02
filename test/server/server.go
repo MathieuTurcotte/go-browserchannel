@@ -87,7 +87,7 @@ func main() {
 	log.Printf("public dir: %s", *publicDir)
 
 	handler := bc.NewHandler(handleChannel)
-	handler.SetCrossDomainPrefix(*hostname+":"+*port, []string{"bc0", "bc1"})
+	handler.SetCrossDomainPrefix(*hostname+":"+*port, []string{"bc0", "bc1", "bc2"})
 
 	http.Handle("/channel/", logr(handler))
 	http.Handle("/closure-library/",
