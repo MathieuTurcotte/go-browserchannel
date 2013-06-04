@@ -103,9 +103,7 @@ func main() {
 	handler.SetCrossDomainPrefix(*hostname+":"+*port, []string{"bc0", "bc1", "bc2"})
 
 	http.Handle("/channel/", handler)
-	http.Handle("/closure-library/",
-		http.StripPrefix("/closure-library/", http.FileServer(http.Dir(*closureDir))))
-
+	http.Handle("/closure/", http.FileServer(http.Dir(*closureDir)))
 	http.Handle("/", http.FileServer(http.Dir(*publicDir)))
 
 	err := http.ListenAndServe(":"+*port, logr(http.DefaultServeMux))

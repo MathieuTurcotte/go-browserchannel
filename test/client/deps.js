@@ -2,4 +2,4 @@
 // Please do not edit.
 goog.addDependency('../../../index.js', ['tests.start'], ['goog.Uri', 'goog.debug.Console', 'goog.net.BrowserChannel', 'goog.net.ChannelDebug', 'tests.Handler1', 'tests.Handler2']);
 goog.addDependency('../../../tests/case1.js', ['tests.Handler1'], ['goog.Timer', 'goog.debug.Logger', 'goog.net.BrowserChannel.Handler']);
-goog.addDependency('../../../tests/case2.js', ['tests.Handler2'], ['goog.Timer', 'goog.debug.Logger', 'goog.net.BrowserChannel.Handler']);
+goog.addDependency('../../../tests/case2.js', ['tests.Handler2'], ['goog.Timer', 'goog.net.BrowserChannel.Handler']);
