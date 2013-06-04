@@ -106,8 +106,7 @@ func main() {
 	http.Handle("/closure/", http.FileServer(http.Dir(*closureDir)))
 	http.Handle("/", http.FileServer(http.Dir(*publicDir)))
 
-	err := http.ListenAndServe(":"+*port, logr(http.DefaultServeMux))
-	if err != nil {
+	if err := http.ListenAndServe(":"+*port, logr(http.DefaultServeMux)); err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
 }
