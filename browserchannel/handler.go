@@ -248,10 +248,8 @@ func (h *Handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	path := req.URL.Path
 	if strings.HasSuffix(path, h.testPath) {
-		log.Printf("test:%s\n", req.URL)
 		h.handleTestRequest(rw, parseTestParams(req))
 	} else if strings.HasSuffix(path, h.bindPath) {
-		log.Printf("bind:%s:%s\n", req.Method, req.URL)
 		params, err := parseBindParams(req, values)
 		if err != nil {
 			rw.WriteHeader(400)
@@ -347,8 +345,6 @@ func (h *Handler) handleBindRequest(rw http.ResponseWriter, params *bindParams) 
 }
 
 func (h *Handler) handleBindPost(rw http.ResponseWriter, params *bindParams, channel *Channel) {
-	log.Printf("%s: bind parameters: %v\n", channel.Sid, params.values)
-
 	offset, maps, err := parseIncomingMaps(params.values)
 	if err != nil {
 		rw.WriteHeader(400)
