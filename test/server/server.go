@@ -73,10 +73,23 @@ func handleChannel(channel *bc.Channel) {
 	}
 }
 
+type statusLoggingResponseWriter struct {
+	status int
+	http.ResponseWriter
+	http.Flusher
+}
+
+func (w *statusLoggingResponseWriter) WriteHeader(code int) {
+	w.status = code
+	w.ResponseWriter.WriteHeader(code)
+}
+
 func logr(handler http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("%s", r.URL)
-		handler.ServeHTTP(w, r)
+		sw := &statusLoggingResponseWriter{-1, w, w.(http.Flusher)}
+		url := r.URL.String() // Handlers may modify the request URL.
+		handler.ServeHTTP(sw, r)
+		log.Printf("[%s] %s %s %d\n", r.RemoteAddr, r.Method, url, sw.status)
 	}
 }
 
@@ -89,13 +102,13 @@ func main() {
 	handler := bc.NewHandler(handleChannel)
 	handler.SetCrossDomainPrefix(*hostname+":"+*port, []string{"bc0", "bc1", "bc2"})
 
-	http.Handle("/channel/", logr(handler))
+	http.Handle("/channel/", handler)
 	http.Handle("/closure-library/",
-		logr(http.StripPrefix("/closure-library/", http.FileServer(http.Dir(*closureDir)))))
+		http.StripPrefix("/closure-library/", http.FileServer(http.Dir(*closureDir))))
 
 	http.Handle("/", http.FileServer(http.Dir(*publicDir)))
 
-	err := http.ListenAndServe(":"+*port, nil)
+	err := http.ListenAndServe(":"+*port, logr(http.DefaultServeMux))
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
