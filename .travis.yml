@@ -27,3 +27,5 @@ script:
     - go test -v github.com/MathieuTurcotte/go-browserchannel/browserchannel/...
     - phantomjs-1.9.0-linux-x86_64/bin/phantomjs $TRAVIS_BUILD_DIR/test/runner.js
 
+after_failure:
+    - cat server.log
