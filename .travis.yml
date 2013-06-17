@@ -18,7 +18,7 @@ before_install:
   - tar -xf phantomjs-1.9.0-linux-x86_64.tar.bz2
 
 before_script:
-    - go run src/github.com/MathieuTurcotte/go-browserchannel/test/server/server.go
+    - go run $TRAVIS_BUILD_DIR/test/server/server.go
         --public_directory=$TRAVIS_BUILD_DIR/test/client
         --closure_directory=$TRAVIS_BUILD_DIR/closure-library
         --port=8080 &> server.log &
