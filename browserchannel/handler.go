@@ -266,7 +266,6 @@ func (h *Handler) handleTestRequest(rw http.ResponseWriter, params *testParams) 
 		rw.WriteHeader(400)
 		io.WriteString(rw, "Unsupported protocol version.")
 	} else if params.init {
-		setHeaders(rw, &headers)
 		rw.WriteHeader(200)
 		io.WriteString(rw, "[\""+getHostPrefix(h.corsInfo)+"\",\"\"]")
 	} else {
