@@ -19,8 +19,8 @@ before_install:
 
 before_script:
     - go run src/github.com/MathieuTurcotte/go-browserchannel/test/server/server.go
-        --public_directory=src/github.com/MathieuTurcotte/go-browserchannel/test/client
-        --closure_directory=src/github.com/MathieuTurcotte/go-browserchannel/closure-library
+        --public_directory=$TRAVIS_BUILD_DIR/test/client
+        --closure_directory=$TRAVIS_BUILD_DIR/closure-library
         --port=8080 &> server.log &
 
 script:
