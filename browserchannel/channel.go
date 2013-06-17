@@ -133,15 +133,20 @@ func (c *Channel) flush() {
 
 	next := len(c.outgoingArrays) - numUnsentArrays
 	data, _ := marshalOutgoingArrays(c.outgoingArrays[next:])
-	c.backChannel.send(data)
-	c.lastSentArrayId = c.lastArrayId
 
-	// If the channel is in the write closed state, i.e. was closed from the
-	// server side, then permanently shutdown the channel. The client won't
-	// send acknowledgments once the stop signal has been sent.
-	if c.state == channelWriteClosed {
-		c.terminateInternal()
-		return
+	// If an error occurs when sending the data, the back channel will become
+	// non-reusable in which case it will be discarded to force the client to
+	// open a new one.
+	if err := c.backChannel.send(data); err == nil {
+		c.lastSentArrayId = c.lastArrayId
+
+		// If the channel is in the write closed state, i.e. was closed from the
+		// server side, then permanently shutdown the channel. The client won't
+		// send acknowledgments once the stop signal has been sent.
+		if c.state == channelWriteClosed {
+			c.terminateInternal()
+			return
+		}
 	}
 
 	// If the number of buffered outgoing arrays is greater than a given
@@ -232,6 +237,7 @@ func (c *Channel) receiveMaps(offset int, maps []Map) (err error) {
 func (c *Channel) dequeueMaps() {
 	for {
 		if m, ok := c.maps.dequeue(); ok {
+			// TODO: Make this a non-blocking operation if there is no reader.
 			c.mapChan <- m
 		} else {
 			break
